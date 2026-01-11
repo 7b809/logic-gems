@@ -40,3 +40,13 @@ def download_from_drive(file_id, output_name=None, zip_flag=False, extract_folde
         print(f"✅ Extracted to folder: {extract_folder}")
 
     return extract_folder if zip_flag else output_name
+
+
+# file_id = ""
+
+# download_from_drive(
+#     file_id=file_id,
+#     output_name="data.zip",
+#     zip_flag=True,
+#     extract_folder="data_folder"
+# )
