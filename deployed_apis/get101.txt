@@ -1,1 +1,60 @@
 
+import requests
+from pathlib import Path
+
+BASE_URL = "https://get101.vercel.app"
+
+
+def send_text(text: str) -> str:
+    """Send raw text to API and return paste key"""
+    url = f"{BASE_URL}/api/upload"
+    payload = {"content": text}
+
+    response = requests.post(url, json=payload, timeout=10)
+    response.raise_for_status()
+
+    data = response.json()
+    if data.get("status") != "success":
+        raise Exception(f"Upload failed: {data}")
+
+    return data["key"]
+
+
+def send_file(file_path: str) -> str:
+    """
+    Reads a readable text/code file and uploads it.
+    Returns the generated paste key.
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    if not path.is_file():
+        raise ValueError(f"Not a file: {file_path}")
+
+    content = path.read_text(encoding="utf-8")
+
+    if not content.strip():
+        raise ValueError("File is empty")
+
+    key = send_text(content)
+    print(f"📤 Uploaded '{path.name}' → key: {key}")
+    return key
+
+
+def save_text_to_file(key: str, filename: str = "file.txt"):
+    """Fetch content using key and save to file"""
+    url = f"{BASE_URL}/api/get/{key}"
+
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+
+    data = response.json()
+    if "content" not in data:
+        raise Exception(f"Fetch failed: {data}")
+
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(data["content"])
+
+    print(f"✅ Content saved to {filename}")
