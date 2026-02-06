@@ -1,5 +1,5 @@
 //@version=5
-indicator("TW All in One – Long Logic + Visual Sell/SR", overlay=true, max_lines_count=100, max_labels_count=100)
+indicator("TW All in One – Localized SR with Data", overlay=true, max_lines_count=100, max_labels_count=100)
 
 // ==========================
 // 🔧 CONFIG
@@ -7,16 +7,12 @@ indicator("TW All in One – Long Logic + Visual Sell/SR", overlay=true, max_lin
 src           = close
 maType        = input.string("EHMA", options=["HMA","EHMA","THMA"])
 length        = input.int(16)
-useHTF        = input.bool(false)
-htf           = input.timeframe("240")
-
-leftBars      = input.int(33)
-rightBars     = input.int(21)
-
+leftBars      = input.int(33, "SR Left Strength")
+rightBars     = input.int(21, "SR Right Strength")
 targetPoints  = input.int(5, "Default Target (Points)")
 
 // ==========================
-// 🕒 IST TIME
+// 🕒 IST TIME FUNCTION
 // ==========================
 get_ist_time(_time) =>
     ist_offset = 5 * 60 * 60 * 1000 + 30 * 60 * 1000
@@ -25,45 +21,41 @@ get_ist_time(_time) =>
 // ==========================
 // 📐 MA FUNCTIONS
 // ==========================
-HMA(_src, _len) =>
-    ta.wma(2 * ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), math.round(math.sqrt(_len)))
-
-EHMA(_src, _len) =>
-    ta.ema(2 * ta.ema(_src, _len) - ta.ema(_src, _len), math.round(math.sqrt(_len)))
-
-THMA(_src, _len) =>
-    ta.wma(ta.wma(_src, math.round(_len / 3)) * 3 - ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), _len)
+HMA(_src, _len) => ta.wma(2 * ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), math.round(math.sqrt(_len)))
+EHMA(_src, _len) => ta.ema(2 * ta.ema(_src, _len) - ta.ema(_src, _len), math.round(math.sqrt(_len)))
+THMA(_src, _len) => ta.wma(ta.wma(_src, math.round(_len / 3)) * 3 - ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), _len)
 
 // ==========================
-// 📊 SUPPORT & RESISTANCE (Dynamic Lines)
+// 📊 LOCALIZED S/R LOGIC
 // ==========================
 ph = ta.pivothigh(high, leftBars, rightBars)
 pl = ta.pivotlow(low, leftBars, rightBars)
 
-resistance = ta.valuewhen(ph, high[rightBars], 0)
-support    = ta.valuewhen(pl, low[rightBars], 0)
+var line lastResLine = na
+var line lastSupLine = na
 
-// Persistent lines
-var line resLine = line.new(na, na, na, na, color=color.new(color.red, 30), width=2, extend=extend.right)
-var line supLine = line.new(na, na, na, na, color=color.new(color.green, 30), width=2, extend=extend.right)
+// Resistance Logic
+if not na(ph)
+    if not na(lastResLine)
+        line.set_x2(lastResLine, bar_index[rightBars])
+        line.set_extend(lastResLine, extend.none) // Lock the old one
+    
+    lastResLine := line.new(bar_index[rightBars], ph, bar_index, ph, color=color.new(color.red, 20), width=2, extend=extend.right)
 
-// Update Resistance
-if not na(resistance)
-    line.set_xy1(resLine, bar_index[rightBars], resistance)
-    line.set_xy2(resLine, bar_index, resistance)
-
-// Update Support
-if not na(support)
-    line.set_xy1(supLine, bar_index[rightBars], support)
-    line.set_xy2(supLine, bar_index, support)
+// Support Logic
+if not na(pl)
+    if not na(lastSupLine)
+        line.set_x2(lastSupLine, bar_index[rightBars])
+        line.set_extend(lastSupLine, extend.none) // Lock the old one
+    
+    lastSupLine := line.new(bar_index[rightBars], pl, bar_index, pl, color=color.new(color.green, 20), width=2, extend=extend.right)
 
 // ==========================
 // 📈 MA CALCULATION
 // ==========================
 ma = maType=="HMA"?HMA(src,length):maType=="EHMA"?EHMA(src,length):THMA(src,length)
-finalMA = useHTF ? request.security(syminfo.tickerid, htf, ma) : ma
-fastMA = finalMA
-slowMA = finalMA[2]
+fastMA = ma
+slowMA = ma[2]
 
 // ==========================
 // 🔁 CROSSOVER LOGIC
@@ -72,58 +64,41 @@ buyCross  = ta.crossunder(slowMA, fastMA)
 sellCross = ta.crossover(slowMA, fastMA)
 
 // ==========================
-// 📊 SUPPORT & RESISTANCE (Dynamic Lines)
+// 🧠 TRADE STATE
 // ==========================
-ph = ta.pivothigh(high, leftBars, rightBars)
-pl = ta.pivotlow(low, leftBars, rightBars)
-
-resistance = ta.valuewhen(ph, high[rightBars], 0)
-support    = ta.valuewhen(pl, low[rightBars], 0)
-
-// These lines will now update and extend correctly
-var line resLine = line.new(na, na, na, na, color=color.new(color.red, 30), width=2, extend=extend.right)
-var line supLine = line.new(na, na, na, na, color=color.new(color.green, 30), width=2, extend=extend.right)
-
-if not na(resistance)
-    line.set_xy1(resLine, bar_index[rightBars], resistance)
-    line.set_xy2(resLine, bar_index, resistance)
-if not na(support)
-    line.set_xy1(supLine, bar_index[rightBars], support)
-    line.set_xy2(supLine, bar_index, support)
+var bool   inTrade   = false
+var float  entryPrice = na
+var float  target     = na
 
 // ==========================
-// 🧠 TRADE STATE (LONG TRACKING ONLY)
-// ==========================
-var bool  inTrade   = false
-var float entryPrice = na
-var float target     = na
-
-// ==========================
-// 🚀 SIGNALS & LABELS
+// 🚀 SIGNALS & LABELS (RESTORED TIME/PRICE)
 // ==========================
 
-// 1. BUY ENTRY (Starts tracking)
+// 1. BUY SIGNAL
 if buyCross
     if not inTrade
         inTrade    := true
         entryPrice := close
         target     := close + targetPoints
     
-    label.new(bar_index, low, "BUY @ " + str.tostring(close) + "\n" + get_ist_time(time), style=label.style_label_up, color=color.green, textcolor=color.white)
+    label.new(bar_index, low, 
+         "BUY @ " + str.tostring(close) + "\nIST: " + get_ist_time(time), 
+         style=label.style_label_up, color=color.green, textcolor=color.white)
 
-// 2. SELL SIGNAL (Visual Only, or Long Exit)
+// 2. SELL SIGNAL
 if sellCross
-    label.new(bar_index, high, "SELL @ " + str.tostring(close) + "\n" + get_ist_time(time), style=label.style_label_down, color=color.red, textcolor=color.white)
+    label.new(bar_index, high, 
+         "SELL @ " + str.tostring(close) + "\nIST: " + get_ist_time(time), 
+         style=label.style_label_down, color=color.red, textcolor=color.white)
     
-    // If we were in a Buy trade, close it out here
     if inTrade
         result = close > entryPrice ? "PROFIT" : "LOSS"
-        label.new(bar_index, high + (high*0.001), "EXIT (" + result + ") @ " + str.tostring(close), color=close > entryPrice ? color.green : color.red, textcolor=color.white, style=label.style_label_down)
+        label.new(bar_index, high + (high*0.002), "EXIT (" + result + ") @ " + str.tostring(close), color=close > entryPrice ? color.green : color.red, textcolor=color.white, style=label.style_label_down)
         inTrade := false
 
-// 3. LONG TARGET HIT
+// 3. TARGET HIT
 if inTrade and high >= target
-    label.new(bar_index, high, "🎯 TARGET HIT @ " + str.tostring(target) + "\n" + get_ist_time(time), color=color.blue, textcolor=color.white, style=label.style_label_down)
+    label.new(bar_index, high, "🎯 TARGET HIT @ " + str.tostring(target) + "\nIST: " + get_ist_time(time), color=color.blue, textcolor=color.white, style=label.style_label_down)
     inTrade := false
 
 // ==========================
