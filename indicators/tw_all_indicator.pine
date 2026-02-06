@@ -1,0 +1,172 @@
+//@version=5
+indicator("TW All in One PRO – Decision & FVG", overlay=true, max_lines_count=50, max_labels_count=50)
+
+// ==========================
+// 🔧 CONFIG
+// ==========================
+src           = close
+maType        = input.string("EHMA", title="MA Type", options=["HMA","EHMA","THMA"])
+length        = input.int(16, title="MA Length")
+useHTF        = input.bool(false, title="Use HTF for MA?")
+htf           = input.timeframe("240", title="HTF Timeframe")
+
+// Pivot settings
+leftBars      = input.int(33, title="Pivot Left Bars")
+rightBars     = input.int(21, title="Pivot Right Bars")
+
+// ==========================
+// 📐 MA FUNCTIONS
+// ==========================
+HMA(_src, _len) =>
+    ta.wma(2 * ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), math.round(math.sqrt(_len)))
+
+EHMA(_src, _len) =>
+    ta.ema(2 * ta.ema(_src, _len) - ta.ema(_src, _len), math.round(math.sqrt(_len)))
+
+THMA(_src, _len) =>
+    ta.wma(ta.wma(_src, math.round(_len / 3)) * 3 - ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), _len)
+
+// ==========================
+// 📈 SELECT MA
+// ==========================
+ma = maType == "HMA"  ? HMA(src, length)  :
+     maType == "EHMA" ? EHMA(src, length) :
+     THMA(src, length)
+
+finalMA = useHTF ? request.security(syminfo.tickerid, htf, ma, lookahead=barmerge.lookahead_on) : ma
+
+fastMA = finalMA
+slowMA = finalMA[2]
+
+// ==========================
+// 🎯 TREND & SIGNALS
+// ==========================
+trendUp   = fastMA > slowMA
+trendDown = fastMA < slowMA
+
+buySignal  = ta.crossunder(slowMA, fastMA)
+sellSignal = ta.crossover(slowMA, fastMA)
+
+// ==========================
+// 🎨 PLOTS
+// ==========================
+maColor = trendUp ? color.new(color.blue, 0) : color.new(color.red, 0)
+plot(fastMA, title="Fast MA", color=maColor, linewidth=2)
+plot(slowMA, title="Slow MA", color=maColor, linewidth=1, style=plot.style_stepline)
+
+plotshape(buySignal,  title="Buy Signal", style=shape.triangleup,
+     location=location.belowbar, color=color.green, size=size.small)
+
+plotshape(sellSignal, title="Sell Signal", style=shape.triangledown,
+     location=location.abovebar, color=color.red, size=size.small)
+
+// ==========================
+// 📊 SUPPORT & RESISTANCE (PIVOTS)
+// ==========================
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low, leftBars, rightBars)
+
+resistance = ta.valuewhen(ph, high[rightBars], 0)
+support    = ta.valuewhen(pl, low[rightBars], 0)
+
+resTime = ta.valuewhen(ph, time[rightBars], 0)
+supTime = ta.valuewhen(pl, time[rightBars], 0)
+
+// ==========================
+// 📦 FAIR VALUE GAP (FVG)
+// ==========================
+// Bullish FVG → imbalance to buy
+bullFVG = low > high[2]
+bullEntry = high[2]
+
+// Bearish FVG → imbalance to sell
+bearFVG = high < low[2]
+bearEntry = low[2]
+
+// ==========================
+// 🧠 TRADE DECISION LOGIC
+// ==========================
+tradeBias =
+     trendUp and bullFVG   ? "BUY"  :
+     trendDown and bearFVG ? "SELL" :
+     "WAIT"
+
+entryPrice =
+     tradeBias == "BUY"  ? bullEntry :
+     tradeBias == "SELL" ? bearEntry :
+     na
+
+stopLoss =
+     tradeBias == "BUY"  ? support :
+     tradeBias == "SELL" ? resistance :
+     na
+
+targetPrice =
+     tradeBias == "BUY"  ? resistance :
+     tradeBias == "SELL" ? support :
+     na
+
+riskReward =
+     not na(entryPrice) and not na(stopLoss) and not na(targetPrice) ?
+     math.abs(targetPrice - entryPrice) /
+     math.abs(entryPrice - stopLoss) :
+     na
+
+logicText =
+     tradeBias == "BUY"  ? "Uptrend + Bullish FVG" :
+     tradeBias == "SELL" ? "Downtrend + Bearish FVG" :
+     "No Trend / No Imbalance"
+
+// ==========================
+// 🧾 DASHBOARD TABLE
+// ==========================
+var table dashboard = table.new(position.top_right, 5, 11, border_width=1, border_color=color.gray)
+
+if barstate.islast
+    table.clear(dashboard, 0, 0, 4, 10)
+
+    // Header
+    table.cell(dashboard, 0, 0, "Item", bgcolor=color.new(color.gray, 50))
+    table.cell(dashboard, 1, 0, "Value", bgcolor=color.new(color.gray, 50))
+    table.cell(dashboard, 2, 0, "Price", bgcolor=color.new(color.gray, 50))
+    table.cell(dashboard, 3, 0, "Time", bgcolor=color.new(color.gray, 50))
+    table.cell(dashboard, 4, 0, "Symbol", bgcolor=color.new(color.gray, 50))
+
+    // Resistance
+    table.cell(dashboard, 0, 1, "R1")
+    table.cell(dashboard, 1, 1, "Resistance", text_color=color.red)
+    table.cell(dashboard, 2, 1, str.tostring(resistance, format.mintick))
+    table.cell(dashboard, 3, 1, str.format("{0,date,dd-MM HH:mm}", resTime))
+    table.cell(dashboard, 4, 1, syminfo.ticker)
+
+    // Support
+    table.cell(dashboard, 0, 2, "S1")
+    table.cell(dashboard, 1, 2, "Support", text_color=color.green)
+    table.cell(dashboard, 2, 2, str.tostring(support, format.mintick))
+    table.cell(dashboard, 3, 2, str.format("{0,date,dd-MM HH:mm}", supTime))
+    table.cell(dashboard, 4, 2, syminfo.ticker)
+
+    // Trade Bias
+    biasColor = tradeBias == "BUY" ? color.green : tradeBias == "SELL" ? color.red : color.orange
+    table.cell(dashboard, 0, 4, "Bias")
+    table.cell(dashboard, 1, 4, tradeBias, text_color=biasColor, bgcolor=color.new(biasColor, 90))
+
+    // Entry
+    table.cell(dashboard, 0, 5, "Entry (FVG)")
+    table.cell(dashboard, 1, 5, na(entryPrice) ? "-" : str.tostring(entryPrice, format.mintick))
+
+    // Target
+    table.cell(dashboard, 0, 6, "Target")
+    table.cell(dashboard, 1, 6, na(targetPrice) ? "-" : str.tostring(targetPrice, format.mintick))
+
+    // Stop Loss
+    table.cell(dashboard, 0, 7, "Stop Loss")
+    table.cell(dashboard, 1, 7, na(stopLoss) ? "-" : str.tostring(stopLoss, format.mintick))
+
+    // Risk Reward
+    table.cell(dashboard, 0, 8, "RR")
+    table.cell(dashboard, 1, 8, na(riskReward) ? "-" : str.tostring(riskReward, "#.##"))
+
+    // Logic
+    table.cell(dashboard, 0, 9, "Logic")
+    table.cell(dashboard, 1, 9, logicText)
