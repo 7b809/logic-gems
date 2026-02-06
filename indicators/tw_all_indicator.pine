@@ -15,6 +15,15 @@ leftBars      = input.int(33, title="Pivot Left Bars")
 rightBars     = input.int(21, title="Pivot Right Bars")
 
 // ==========================
+// 🔥 NEW FILTER CONFIG (ADD-ON ONLY)
+// ==========================
+minFVGPoints  = input.float(20, "Min FVG Size (points)")
+minSlope      = input.float(5, "Min MA Slope")
+cooldownBars  = input.int(5, "Signal Cooldown Bars")
+useVolume     = input.bool(true, "Enable Liquidity Filter")
+volMultiplier = input.float(1.5, "Volume Spike Multiplier")
+
+// ==========================
 // 📐 MA FUNCTIONS
 // ==========================
 HMA(_src, _len) =>
@@ -25,6 +34,7 @@ EHMA(_src, _len) =>
 
 THMA(_src, _len) =>
     ta.wma(ta.wma(_src, math.round(_len / 3)) * 3 - ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), _len)
+
 
 // ==========================
 // 📈 SELECT MA
@@ -39,10 +49,15 @@ fastMA = finalMA
 slowMA = finalMA[2]
 
 // ==========================
-// 🎯 TREND & SIGNALS
+// 🔍 ADD-ON: MA SLOPE FILTER
 // ==========================
-trendUp   = fastMA > slowMA
-trendDown = fastMA < slowMA
+maSlope = fastMA - fastMA[3]
+
+// ==========================
+// 🎯 TREND & SIGNALS (UNCHANGED LOGIC)
+// ==========================
+trendUp   = fastMA > slowMA and maSlope > minSlope
+trendDown = fastMA < slowMA and maSlope < -minSlope
 
 buySignal  = ta.crossunder(slowMA, fastMA)
 sellSignal = ta.crossover(slowMA, fastMA)
@@ -73,23 +88,37 @@ resTime = ta.valuewhen(ph, time[rightBars], 0)
 supTime = ta.valuewhen(pl, time[rightBars], 0)
 
 // ==========================
-// 📦 FAIR VALUE GAP (FVG)
+// 📦 FAIR VALUE GAP (FILTERED)
 // ==========================
-// Bullish FVG → imbalance to buy
-bullFVG = low > high[2]
+bullFVG = low > high[2] and (low - high[2]) >= minFVGPoints
 bullEntry = high[2]
 
-// Bearish FVG → imbalance to sell
-bearFVG = high < low[2]
+bearFVG = high < low[2] and (low[2] - high) >= minFVGPoints
 bearEntry = low[2]
 
 // ==========================
-// 🧠 TRADE DECISION LOGIC
+// 🔊 ADD-ON: LIQUIDITY FILTER
+// ==========================
+volMA = ta.sma(volume, 20)
+liquiditySpike = volume > volMA * volMultiplier
+liquidityOK = useVolume ? liquiditySpike : true
+
+// ==========================
+// ⏳ ADD-ON: COOLDOWN FILTER
+// ==========================
+var int lastSignalBar = na
+canTrade = na(lastSignalBar) or (bar_index - lastSignalBar > cooldownBars)
+
+// ==========================
+// 🧠 TRADE DECISION LOGIC (FILTERED ONLY)
 // ==========================
 tradeBias =
-     trendUp and bullFVG   ? "BUY"  :
-     trendDown and bearFVG ? "SELL" :
+     canTrade and liquidityOK and trendUp and bullFVG   ? "BUY"  :
+     canTrade and liquidityOK and trendDown and bearFVG ? "SELL" :
      "WAIT"
+
+if tradeBias != "WAIT"
+    lastSignalBar := bar_index
 
 entryPrice =
      tradeBias == "BUY"  ? bullEntry :
@@ -113,60 +142,51 @@ riskReward =
      na
 
 logicText =
-     tradeBias == "BUY"  ? "Uptrend + Bullish FVG" :
-     tradeBias == "SELL" ? "Downtrend + Bearish FVG" :
-     "No Trend / No Imbalance"
+     tradeBias == "BUY"  ? "Strong Trend + Large FVG + Liquidity" :
+     tradeBias == "SELL" ? "Strong Trend + Large FVG + Liquidity" :
+     "Filtered / No Trade"
 
 // ==========================
-// 🧾 DASHBOARD TABLE
+// 🧾 DASHBOARD TABLE (UNCHANGED)
 // ==========================
 var table dashboard = table.new(position.top_right, 5, 11, border_width=1, border_color=color.gray)
 
 if barstate.islast
     table.clear(dashboard, 0, 0, 4, 10)
 
-    // Header
     table.cell(dashboard, 0, 0, "Item", bgcolor=color.new(color.gray, 50))
     table.cell(dashboard, 1, 0, "Value", bgcolor=color.new(color.gray, 50))
     table.cell(dashboard, 2, 0, "Price", bgcolor=color.new(color.gray, 50))
     table.cell(dashboard, 3, 0, "Time", bgcolor=color.new(color.gray, 50))
     table.cell(dashboard, 4, 0, "Symbol", bgcolor=color.new(color.gray, 50))
 
-    // Resistance
     table.cell(dashboard, 0, 1, "R1")
     table.cell(dashboard, 1, 1, "Resistance", text_color=color.red)
     table.cell(dashboard, 2, 1, str.tostring(resistance, format.mintick))
     table.cell(dashboard, 3, 1, str.format("{0,date,dd-MM HH:mm}", resTime))
     table.cell(dashboard, 4, 1, syminfo.ticker)
 
-    // Support
     table.cell(dashboard, 0, 2, "S1")
     table.cell(dashboard, 1, 2, "Support", text_color=color.green)
     table.cell(dashboard, 2, 2, str.tostring(support, format.mintick))
     table.cell(dashboard, 3, 2, str.format("{0,date,dd-MM HH:mm}", supTime))
     table.cell(dashboard, 4, 2, syminfo.ticker)
 
-    // Trade Bias
     biasColor = tradeBias == "BUY" ? color.green : tradeBias == "SELL" ? color.red : color.orange
     table.cell(dashboard, 0, 4, "Bias")
     table.cell(dashboard, 1, 4, tradeBias, text_color=biasColor, bgcolor=color.new(biasColor, 90))
 
-    // Entry
     table.cell(dashboard, 0, 5, "Entry (FVG)")
     table.cell(dashboard, 1, 5, na(entryPrice) ? "-" : str.tostring(entryPrice, format.mintick))
 
-    // Target
     table.cell(dashboard, 0, 6, "Target")
     table.cell(dashboard, 1, 6, na(targetPrice) ? "-" : str.tostring(targetPrice, format.mintick))
 
-    // Stop Loss
     table.cell(dashboard, 0, 7, "Stop Loss")
     table.cell(dashboard, 1, 7, na(stopLoss) ? "-" : str.tostring(stopLoss, format.mintick))
 
-    // Risk Reward
     table.cell(dashboard, 0, 8, "RR")
     table.cell(dashboard, 1, 8, na(riskReward) ? "-" : str.tostring(riskReward, "#.##"))
 
-    // Logic
     table.cell(dashboard, 0, 9, "Logic")
     table.cell(dashboard, 1, 9, logicText)
