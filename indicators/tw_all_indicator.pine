@@ -9,7 +9,7 @@ maType        = input.string("EHMA", options=["HMA","EHMA","THMA"])
 length        = input.int(16)
 leftBars      = input.int(33, "SR Left Strength")
 rightBars     = input.int(21, "SR Right Strength")
-targetPoints  = input.int(5, "Default Target (Points)")
+targetPercent = input.float(5, "Target %", step=0.1)
 
 // ==========================
 // 🕒 IST TIME FUNCTION
@@ -79,7 +79,7 @@ if buyCross
     if not inTrade
         inTrade    := true
         entryPrice := close
-        target     := close + targetPoints
+        target := entryPrice * (1 + targetPercent / 100)
     
     label.new(bar_index, low, 
          "BUY @ " + str.tostring(close) + "\nIST: " + get_ist_time(time), 
