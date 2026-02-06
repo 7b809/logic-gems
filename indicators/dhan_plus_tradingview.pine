@@ -1,5 +1,5 @@
 //@version=5
-indicator("TW All in One – Advanced Position Management", overlay=true, max_lines_count=100, max_labels_count=100)
+indicator("Dhan+Webhook", overlay=true, max_lines_count=100, max_labels_count=100)
 
 // ==========================
 // 🔧 CONFIG
@@ -101,7 +101,7 @@ sendWebhook(string action, float price, int quantity, string orderType, float ta
 // 1. BUY SIGNAL
 if buyCross and not inTrade
     inTrade    := true
-    entryPrice := close
+    entryPrice := low
     breakevenSL := entryPrice
     stopLossMoved := false
     partialExit1 := 0
@@ -155,7 +155,7 @@ if inTrade and low <= (stopLossMoved ? breakevenSL : entryPrice * 0.985)
 
     inTrade := false
     
-    label.new(bar_index, low, "🛑 STOP LOSS HIT\nExit Qty: " + str.tostring(exitQty) + "\nPrice: " + str.tostring(exitPrice) + "\nIST: " + get_ist_time(time), color=color.red, textcolor=color.white, style=label.style_label_up)
+    label.new(bar_index, high, "🛑 STOP LOSS HIT\nExit Qty: " + str.tostring(exitQty) + "\nPrice: " + str.tostring(exitPrice) + "\nIST: " + get_ist_time(time), color=color.red, textcolor=color.white, style=label.style_label_down)
 
 // 6. SELL SIGNAL EXIT
 if sellCross and inTrade
