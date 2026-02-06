@@ -1,0 +1,1 @@
+## use main-1 with tradepulse 1.0 indicator

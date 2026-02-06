@@ -1,0 +1,47 @@
+//@version=5
+indicator("Main - 1", overlay=true)
+
+// Create two separate connection points
+tpBuySource  = input.source(open, title="Link to TradePulse BUY Plot")
+tpSellSource = input.source(open, title="Link to TradePulse SELL Plot")
+
+// Function to get IST Timestamp string
+get_ist_time() =>
+    int ist_offset = 5 * 60 * 60 * 1000 + 30 * 60 * 1000
+    int ist_time   = time + ist_offset
+    str.format("{0,time,HH:mm:ss}", ist_time)
+
+// Logic
+isBuy  = not na(tpBuySource) and (tpBuySource != 0)
+isSell = not na(tpSellSource) and (tpSellSource != 0)
+
+// Get formatted strings
+string istTimestamp = get_ist_time()
+string priceString  = str.tostring(close, format.mintick)
+string chartName    = syminfo.description
+
+// Plot Labels
+if isBuy
+    label.new(bar_index, low, "BUY: "  + "\nPrice: " + priceString + "\n" + istTimestamp, 
+              color=color.green, 
+              style=label.style_label_up, 
+              textcolor=color.white)
+              
+    // 1. Webhook Alert (JSON Format)
+    alert('{"signal": "BUY", "asset": "' + chartName + '", "price": "' + priceString + '", "time": "' + istTimestamp + '", "ticker": "' + syminfo.ticker + '"}', alert.freq_once_per_bar)
+    
+    // 2. App Notification (Clean Human-Readable Format)
+    alert("🚀 BUY Signal on " + syminfo.ticker + " at " + priceString, alert.freq_once_per_bar)
+
+if isSell
+    label.new(bar_index, high, "SELL: "+ "\nPrice: " + priceString + "\n" + istTimestamp, 
+              color=color.red, 
+              style=label.style_label_down, 
+              textcolor=color.white)
+              
+    // 1. Webhook Alert (JSON Format)
+    alert('{"signal": "SELL", "asset": "' + chartName + '", "price": "' + priceString + '", "time": "' + istTimestamp + '", "ticker": "' + syminfo.ticker + '"}', alert.freq_once_per_bar)
+    
+    // 2. App Notification (Clean Human-Readable Format)
+    alert("⚠️ SELL Signal on " + syminfo.ticker + " at " + priceString, alert.freq_once_per_bar)// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © acc07

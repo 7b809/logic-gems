@@ -1,30 +1,30 @@
 //@version=5
-indicator("TW All in One PRO – Decision & FVG", overlay=true, max_lines_count=50, max_labels_count=50)
+indicator("TW All in One PRO – Decision & FVG", overlay=true, max_lines_count=100, max_labels_count=100)
 
 // ==========================
 // 🔧 CONFIG
 // ==========================
 src           = close
-maType        = input.string("EHMA", title="MA Type", options=["HMA","EHMA","THMA"])
-length        = input.int(16, title="MA Length")
-useHTF        = input.bool(false, title="Use HTF for MA?")
-htf           = input.timeframe("240", title="HTF Timeframe")
+maType        = input.string("EHMA", options=["HMA","EHMA","THMA"])
+length        = input.int(16)
+useHTF        = input.bool(false)
+htf           = input.timeframe("240")
 
-// Pivot settings
-leftBars      = input.int(33, title="Pivot Left Bars")
-rightBars     = input.int(21, title="Pivot Right Bars")
+leftBars      = input.int(33)
+rightBars     = input.int(21)
 
-// ==========================
-// 🔥 NEW FILTER CONFIG (ADD-ON ONLY)
-// ==========================
-minFVGPoints  = input.float(20, "Min FVG Size (points)")
-minSlope      = input.float(5, "Min MA Slope")
-cooldownBars  = input.int(5, "Signal Cooldown Bars")
-useVolume     = input.bool(true, "Enable Liquidity Filter")
-volMultiplier = input.float(1.5, "Volume Spike Multiplier")
+targetPoints  = input.int(5, "Default Target (Points)")
 
 // ==========================
-// 📐 MA FUNCTIONS
+// 🕒 IST TIME
+// ==========================
+get_ist_time(_time) =>
+    ist_offset = 5 * 60 * 60 * 1000 + 30 * 60 * 1000
+    str.format("{0,time,HH:mm:ss}", _time + ist_offset)
+
+
+// ==========================
+// 📐 MA FUNCTIONS (Pine v5 SAFE)
 // ==========================
 HMA(_src, _len) =>
     ta.wma(2 * ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), math.round(math.sqrt(_len)))
@@ -36,47 +36,24 @@ THMA(_src, _len) =>
     ta.wma(ta.wma(_src, math.round(_len / 3)) * 3 - ta.wma(_src, math.round(_len / 2)) - ta.wma(_src, _len), _len)
 
 
-// ==========================
-// 📈 SELECT MA
-// ==========================
-ma = maType == "HMA"  ? HMA(src, length)  :
-     maType == "EHMA" ? EHMA(src, length) :
-     THMA(src, length)
 
-finalMA = useHTF ? request.security(syminfo.tickerid, htf, ma, lookahead=barmerge.lookahead_on) : ma
 
+// ==========================
+// 📈 MA
+// ==========================
+ma = maType=="HMA"?HMA(src,length):maType=="EHMA"?EHMA(src,length):THMA(src,length)
+finalMA = useHTF ? request.security(syminfo.tickerid, htf, ma) : ma
 fastMA = finalMA
 slowMA = finalMA[2]
 
 // ==========================
-// 🔍 ADD-ON: MA SLOPE FILTER
+// 🔁 CROSS
 // ==========================
-maSlope = fastMA - fastMA[3]
+buyCross  = ta.crossunder(slowMA, fastMA)
+sellCross = ta.crossover(slowMA, fastMA)
 
 // ==========================
-// 🎯 TREND & SIGNALS (UNCHANGED LOGIC)
-// ==========================
-trendUp   = fastMA > slowMA and maSlope > minSlope
-trendDown = fastMA < slowMA and maSlope < -minSlope
-
-buySignal  = ta.crossunder(slowMA, fastMA)
-sellSignal = ta.crossover(slowMA, fastMA)
-
-// ==========================
-// 🎨 PLOTS
-// ==========================
-maColor = trendUp ? color.new(color.blue, 0) : color.new(color.red, 0)
-plot(fastMA, title="Fast MA", color=maColor, linewidth=2)
-plot(slowMA, title="Slow MA", color=maColor, linewidth=1, style=plot.style_stepline)
-
-plotshape(buySignal,  title="Buy Signal", style=shape.triangleup,
-     location=location.belowbar, color=color.green, size=size.small)
-
-plotshape(sellSignal, title="Sell Signal", style=shape.triangledown,
-     location=location.abovebar, color=color.red, size=size.small)
-
-// ==========================
-// 📊 SUPPORT & RESISTANCE (PIVOTS)
+// 📊 SUPPORT & RESISTANCE
 // ==========================
 ph = ta.pivothigh(high, leftBars, rightBars)
 pl = ta.pivotlow(low, leftBars, rightBars)
@@ -84,109 +61,62 @@ pl = ta.pivotlow(low, leftBars, rightBars)
 resistance = ta.valuewhen(ph, high[rightBars], 0)
 support    = ta.valuewhen(pl, low[rightBars], 0)
 
-resTime = ta.valuewhen(ph, time[rightBars], 0)
-supTime = ta.valuewhen(pl, time[rightBars], 0)
+line.new(bar_index[1], resistance, bar_index, resistance, color=color.red, extend=extend.right)
+line.new(bar_index[1], support, bar_index, support, color=color.green, extend=extend.right)
 
 // ==========================
-// 📦 FAIR VALUE GAP (FILTERED)
+// 🧠 TRADE STATE
 // ==========================
-bullFVG = low > high[2] and (low - high[2]) >= minFVGPoints
-bullEntry = high[2]
-
-bearFVG = high < low[2] and (low[2] - high) >= minFVGPoints
-bearEntry = low[2]
-
-// ==========================
-// 🔊 ADD-ON: LIQUIDITY FILTER
-// ==========================
-volMA = ta.sma(volume, 20)
-liquiditySpike = volume > volMA * volMultiplier
-liquidityOK = useVolume ? liquiditySpike : true
+var bool  inTrade     = false
+var string tradeType = ""
+var float entryPrice = na
+var float target     = na
 
 // ==========================
-// ⏳ ADD-ON: COOLDOWN FILTER
+// 🚀 ENTRY
 // ==========================
-var int lastSignalBar = na
-canTrade = na(lastSignalBar) or (bar_index - lastSignalBar > cooldownBars)
+if buyCross and not inTrade
+    inTrade := true
+    tradeType := "BUY"
+    entryPrice := close
+    target := close + targetPoints
 
-// ==========================
-// 🧠 TRADE DECISION LOGIC (FILTERED ONLY)
-// ==========================
-tradeBias =
-     canTrade and liquidityOK and trendUp and bullFVG   ? "BUY"  :
-     canTrade and liquidityOK and trendDown and bearFVG ? "SELL" :
-     "WAIT"
+    label.new(bar_index, low,"BUY @ " + str.tostring(entryPrice) + " | " + get_ist_time(time),style=label.style_label_up,color=color.green,textcolor=color.white)
 
-if tradeBias != "WAIT"
-    lastSignalBar := bar_index
+if sellCross and not inTrade
+    inTrade := true
+    tradeType := "SELL"
+    entryPrice := close
+    target := close - targetPoints
 
-entryPrice =
-     tradeBias == "BUY"  ? bullEntry :
-     tradeBias == "SELL" ? bearEntry :
-     na
-
-stopLoss =
-     tradeBias == "BUY"  ? support :
-     tradeBias == "SELL" ? resistance :
-     na
-
-targetPrice =
-     tradeBias == "BUY"  ? resistance :
-     tradeBias == "SELL" ? support :
-     na
-
-riskReward =
-     not na(entryPrice) and not na(stopLoss) and not na(targetPrice) ?
-     math.abs(targetPrice - entryPrice) /
-     math.abs(entryPrice - stopLoss) :
-     na
-
-logicText =
-     tradeBias == "BUY"  ? "Strong Trend + Large FVG + Liquidity" :
-     tradeBias == "SELL" ? "Strong Trend + Large FVG + Liquidity" :
-     "Filtered / No Trade"
+    label.new(bar_index, high,"SELL @ " + str.tostring(entryPrice) + " | " + get_ist_time(time),style=label.style_label_down,color=color.red,textcolor=color.white)
 
 // ==========================
-// 🧾 DASHBOARD TABLE (UNCHANGED)
+// 🎯 TARGET HIT
 // ==========================
-var table dashboard = table.new(position.top_right, 5, 11, border_width=1, border_color=color.gray)
+if inTrade and tradeType=="BUY" and high >= target
+    label.new(bar_index, high,"TARGET HIT @ " + str.tostring(target) + " | " + get_ist_time(time),color=color.green,textcolor=color.white)
+    inTrade := false
 
-if barstate.islast
-    table.clear(dashboard, 0, 0, 4, 10)
+if inTrade and tradeType=="SELL" and low <= target
+    label.new(bar_index, low,"TARGET HIT @ " + str.tostring(target) + " | " + get_ist_time(time),color=color.green,textcolor=color.white)
+    inTrade := false
 
-    table.cell(dashboard, 0, 0, "Item", bgcolor=color.new(color.gray, 50))
-    table.cell(dashboard, 1, 0, "Value", bgcolor=color.new(color.gray, 50))
-    table.cell(dashboard, 2, 0, "Price", bgcolor=color.new(color.gray, 50))
-    table.cell(dashboard, 3, 0, "Time", bgcolor=color.new(color.gray, 50))
-    table.cell(dashboard, 4, 0, "Symbol", bgcolor=color.new(color.gray, 50))
+// ==========================
+// 🔄 EXIT ON OPPOSITE CROSS
+// ==========================
+if inTrade and tradeType=="BUY" and sellCross
+    result = close > entryPrice ? "PROFIT" : "LOSS"
+    label.new(bar_index, high,"EXIT " + result + " @ " + str.tostring(close) + " | " + get_ist_time(time),color=close > entryPrice ? color.green : color.red,textcolor=color.white)
+    inTrade := false
 
-    table.cell(dashboard, 0, 1, "R1")
-    table.cell(dashboard, 1, 1, "Resistance", text_color=color.red)
-    table.cell(dashboard, 2, 1, str.tostring(resistance, format.mintick))
-    table.cell(dashboard, 3, 1, str.format("{0,date,dd-MM HH:mm}", resTime))
-    table.cell(dashboard, 4, 1, syminfo.ticker)
+if inTrade and tradeType=="SELL" and buyCross
+    result = close < entryPrice ? "PROFIT" : "LOSS"
+    label.new(bar_index, low,"EXIT " + result + " @ " + str.tostring(close) + " | " + get_ist_time(time),color=close < entryPrice ? color.green : color.red,textcolor=color.white)
+    inTrade := false
 
-    table.cell(dashboard, 0, 2, "S1")
-    table.cell(dashboard, 1, 2, "Support", text_color=color.green)
-    table.cell(dashboard, 2, 2, str.tostring(support, format.mintick))
-    table.cell(dashboard, 3, 2, str.format("{0,date,dd-MM HH:mm}", supTime))
-    table.cell(dashboard, 4, 2, syminfo.ticker)
-
-    biasColor = tradeBias == "BUY" ? color.green : tradeBias == "SELL" ? color.red : color.orange
-    table.cell(dashboard, 0, 4, "Bias")
-    table.cell(dashboard, 1, 4, tradeBias, text_color=biasColor, bgcolor=color.new(biasColor, 90))
-
-    table.cell(dashboard, 0, 5, "Entry (FVG)")
-    table.cell(dashboard, 1, 5, na(entryPrice) ? "-" : str.tostring(entryPrice, format.mintick))
-
-    table.cell(dashboard, 0, 6, "Target")
-    table.cell(dashboard, 1, 6, na(targetPrice) ? "-" : str.tostring(targetPrice, format.mintick))
-
-    table.cell(dashboard, 0, 7, "Stop Loss")
-    table.cell(dashboard, 1, 7, na(stopLoss) ? "-" : str.tostring(stopLoss, format.mintick))
-
-    table.cell(dashboard, 0, 8, "RR")
-    table.cell(dashboard, 1, 8, na(riskReward) ? "-" : str.tostring(riskReward, "#.##"))
-
-    table.cell(dashboard, 0, 9, "Logic")
-    table.cell(dashboard, 1, 9, logicText)
+// ==========================
+// 🎨 PLOTS
+// ==========================
+plot(fastMA, color=color.blue, linewidth=2)
+plot(slowMA, color=color.orange, linewidth=1, style=plot.style_stepline)
