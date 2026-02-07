@@ -1,0 +1,57 @@
+//@version=5
+indicator("Pivot Support & Resistance (Clean)", overlay=true, max_lines_count=20, max_labels_count=50)
+
+// ==========================
+// 🔧 CONFIG
+// ==========================
+leftBars     = input.int(33, "Left Strength")
+rightBars    = input.int(21, "Right Strength")
+showLabels   = input.bool(true, "Show Labels")
+
+// ==========================
+// 🕒 IST TIME FUNCTION
+// ==========================
+get_ist_time(_time) =>
+    ist_offset = 5 * 60 * 60 * 1000 + 30 * 60 * 1000
+    str.format("{0,time,HH:mm:ss}", _time + ist_offset)
+
+// ==========================
+// 📊 PIVOT LOGIC
+// ==========================
+ph = ta.pivothigh(high, leftBars, rightBars)
+pl = ta.pivotlow(low, leftBars, rightBars)
+
+// ==========================
+// 🧱 STATE
+// ==========================
+var line resLine = na
+var line supLine = na
+
+// ==========================
+// 🔴 RESISTANCE
+// ==========================
+if not na(ph)
+    if not na(resLine)
+        line.set_x2(resLine, bar_index[rightBars])
+        line.set_extend(resLine, extend.none)
+
+    resLine := line.new(bar_index[rightBars], ph, bar_index, ph, width=2, color=color.new(color.red, 20), extend=extend.right)
+
+    if showLabels
+        label.new(bar_index[rightBars], ph, "R: " + str.tostring(ph) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+
+
+
+// ==========================
+// 🟢 SUPPORT
+// ==========================
+if not na(pl)
+    if not na(supLine)
+        line.set_x2(supLine, bar_index[rightBars])
+        line.set_extend(supLine, extend.none)
+
+    supLine := line.new(bar_index[rightBars], pl, bar_index, pl, width=2, color=color.new(color.green, 20), extend=extend.right)
+
+    if showLabels
+        label.new(bar_index[rightBars], pl, "S: " + str.tostring(pl) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+
