@@ -17,6 +17,25 @@ showSRLabels = input.bool(true, "Show S/R Labels")
 supportSLPercent = input.float(5, "Support SL Buffer %", step=0.1)
 
 // ==========================
+// 📦 LOT-BASED EXIT LOGIC (NEW)
+// ==========================
+totalLots = lots
+
+firstExitLots = math.ceil(totalLots / 2)
+remainingLots1 = totalLots - firstExitLots
+
+secondExitLots = remainingLots1 > 1 ? math.ceil(remainingLots1 / 2) : remainingLots1
+remainingLots2 = remainingLots1 - secondExitLots
+
+finalExitLots = remainingLots2
+
+// 🔢 LOT → QTY CONVERSION (ADD THIS)
+totalQty      = totalLots * lotSize
+firstExitQty  = firstExitLots  * lotSize
+secondExitQty = secondExitLots * lotSize
+finalExitQty  = finalExitLots  * lotSize
+
+// ==========================
 // 🕒 IST TIME FUNCTION
 // ==========================
 get_ist_time(_time) =>
@@ -102,31 +121,30 @@ buyCross  = ta.crossunder(slowMA, fastMA)
 sellCross = ta.crossover(slowMA, fastMA)
 
 // ==========================
+// 🎯 TARGET VARIABLES (ADD THIS)
+// ==========================
+var float basePoints = na
+var float t1 = na
+var float t2 = na
+var float t3 = na
+
+// ==========================
 // 🧠 ADVANCED TRADE STATE
 // ==========================
 var bool   inTrade      = false
 var float  entryPrice   = na
-var int    totalQty     = 0
 var int    partialExit1 = 0
 var int    partialExit2 = 0
 var float dynamicSL = na
+var bool slMovedToEntry = false   // 🔴 NEW FLAG
 
-// Calculate quantities
-totalQty := lots * lotSize
-firstExitQty = math.floor(totalQty / 2)
-// Make sure first exit is even number
-firstExitQty := firstExitQty % 2 == 0 ? firstExitQty : firstExitQty + 1
-remainingAfterFirst = totalQty - firstExitQty
+var int lastExitBar = na
 
-// Calculate subsequent exit quantities
-secondExitQty = math.floor(remainingAfterFirst / 2)
-secondExitQty := secondExitQty % 2 == 0 ? secondExitQty : secondExitQty + 1
-finalExitQty = remainingAfterFirst - secondExitQty
 
 // ==========================
 // 🔒 SUPPORT-BASED TRAILING SL
 // ==========================
-if inTrade and partialExit1 == 1 and not na(lastSupportPrice) and barstate.isconfirmed
+if inTrade and partialExit1 == 1 and partialExit2 == 0 and not slMovedToEntry and not na(lastSupportPrice) and barstate.isconfirmed
     supportBasedSL = roundToTick(lastSupportPrice * (1 + supportSLPercent / 100))
 
     // Safety: SL must stay below current price
@@ -148,11 +166,13 @@ if inTrade and partialExit1 == 1 and not na(lastSupportPrice) and barstate.iscon
 
 
 // 1. BUY SIGNAL
-if buyCross and not inTrade
+if buyCross and not inTrade and (na(lastExitBar) or bar_index > lastExitBar)
+
     inTrade    := true
-    entryPrice := low
+    entryPrice := close
     partialExit1 := 0
     partialExit2 := 0
+    slMovedToEntry := false   // 🔴 RESET FOR NEW TRADE
 
     // ENTRY SL FROM SUPPORT
     supportSL = na(lastSupportPrice)? low * 0.99   : roundToTick(lastSupportPrice * (1 + supportSLPercent / 100))
@@ -161,16 +181,24 @@ if buyCross and not inTrade
     dynamicSL := math.min(dynamicSL, entryPrice * 0.999)
 
     // Send initial buy order
-    sendWebhook( "BUY",close,totalQty,"LIMIT",entryPrice * (1 + targetPercent / 100),dynamicSL,"INITIAL_ENTRY"    )
+    // Calculate base points ONCE
+    basePoints := roundToTick(entryPrice * targetPercent / 100)
 
-    label.new(bar_index, low, "BUY " + str.tostring(totalQty) + " @ " + str.tostring(close) + "\nTarget: " + str.tostring(entryPrice * (1 + targetPercent / 100)) + "\nSL: " + str.tostring(dynamicSL) + "\nIST: " + get_ist_time(time), style=label.style_label_up, color=color.green, textcolor=color.white)
+    // Build step targets
+    t1 := entryPrice + basePoints
+    t2 := entryPrice + basePoints * 2
+    t3 := entryPrice + basePoints * 3
+
+    sendWebhook( "BUY",close,totalQty,"LIMIT",t1,dynamicSL,"INITIAL_ENTRY"    )
+
+    label.new(bar_index, low, "BUY " + str.tostring(totalQty) + " @ " + str.tostring(close) + "\nTarget: " + str.tostring(t1)  + "\nSL: " + str.tostring(dynamicSL) + "\nIST: " + get_ist_time(time), style=label.style_label_up, color=color.green, textcolor=color.white)
 
 // 2. FIRST TARGET HIT (Sell 50%)
-if inTrade and high >= entryPrice * (1 + targetPercent / 100) and partialExit1 == 0
+if inTrade and high >= t1 and partialExit1 == 0
     partialExit1 := 1
     
     // Send partial exit order
-    sendWebhook("SELL", entryPrice * (1 + targetPercent / 100), firstExitQty, "LIMIT", na, na, "PARTIAL_EXIT_1")
+    sendWebhook("SELL", t1, firstExitQty, "LIMIT", na, na, "PARTIAL_EXIT_1")
 
     // Move SL to support after partial exit
     dynamicSL := na(lastSupportPrice) ? dynamicSL : roundToTick(lastSupportPrice * (1 + supportSLPercent / 100))
@@ -185,31 +213,40 @@ if inTrade and high >= entryPrice * (1 + targetPercent / 100) and partialExit1 =
         
     label.new(bar_index, high, "🎯 PARTIAL EXIT (" + str.tostring(firstExitQty) + " qty)" + "\nPrice: " + str.tostring(entryPrice * (1 + targetPercent / 100)) + "\nSL Moved to: " + str.tostring(dynamicSL) + "\nIST: " + get_ist_time(time), color=color.blue, textcolor=color.white, style=label.style_label_down)
 
-// 3. SECOND TARGET HIT (Sell 25% of original)
-if inTrade and partialExit1 == 1 and high >= entryPrice * (1 + targetPercent / 100) * (1 + targetPercent / 100) and partialExit2 == 0
+// 3. SECOND TARGET HIT
+if inTrade and partialExit1 == 1 and partialExit2 == 0 and secondExitLots > 0 and high >= t2
     partialExit2 := 1
-    
-    secondTarget = entryPrice * (1 + targetPercent / 100) * (1 + targetPercent / 100)
-    
-    sendWebhook("SELL", secondTarget, secondExitQty, "LIMIT", na, na, "PARTIAL_EXIT_2")
 
-    label.new(bar_index, high, "🎯 SECOND EXIT (" + str.tostring(secondExitQty) + " qty)" + "\nPrice: " + str.tostring(secondTarget) + "\nIST: " + get_ist_time(time), color=color.purple, textcolor=color.white, style=label.style_label_down)
+    sendWebhook("SELL", t2, secondExitQty, "LIMIT", na, na, "PARTIAL_EXIT_2")
 
+    // 🔒 MOVE SL TO ENTRY (BREAKEVEN) AFTER T2
+    dynamicSL := roundToTick(math.min(entryPrice, close * 0.999))
+    slMovedToEntry := true
+
+    sendWebhook( "MODIFY_SL",na,na,"SL",na,dynamicSL,"BREAKEVEN_AFTER_T2"    )
+
+    if not na(slLine)
+        line.delete(slLine)
+
+    slLine := line.new( bar_index,dynamicSL,bar_index + 1,dynamicSL,color=color.yellow,style=line.style_dotted )
+
+    label.new( bar_index,dynamicSL,"🔒 SL MOVED TO ENTRY\nEntry: " + str.tostring(entryPrice) + "\nIST: " + get_ist_time(time),style=label.style_label_down,color=color.yellow,textcolor=color.black,size=size.small )
 // 4. FINAL EXIT (Remaining 25%)
-if inTrade and partialExit2 == 1 and high >= entryPrice * math.pow((1 + targetPercent / 100), 3)
-    finalTarget = entryPrice * math.pow((1 + targetPercent / 100), 3)
+if inTrade and finalExitLots > 0 and high >= t3
     
-    sendWebhook("SELL", finalTarget, finalExitQty, "LIMIT", na, na, "FINAL_EXIT")
+    sendWebhook("SELL", t3, finalExitQty, "LIMIT", na, na, "FINAL_EXIT")
 
     inTrade := false
     dynamicSL := na
+    slMovedToEntry := false
+    lastExitBar := bar_index   // 🔴 ADD THIS
+
     if not na(slLine)
         line.delete(slLine)
         slLine := na
 
     
-    label.new(bar_index, high, "🎯 FINAL EXIT (" + str.tostring(finalExitQty) + " qty)" + "\nPrice: " + str.tostring(finalTarget) + "\nTotal Profit Booked" + "\nIST: " + get_ist_time(time), color=color.orange, textcolor=color.white, style=label.style_label_down)
-
+    label.new(bar_index,high,"🎯 FINAL EXIT (" + str.tostring(finalExitQty) + " qty)" + "\nPrice: " + str.tostring(t3) + "\nTotal Profit Booked" + "\nIST: " + get_ist_time(time),color=color.orange,textcolor=color.white,style=label.style_label_down)
 // 5. STOP LOSS HIT
 if inTrade and not na(dynamicSL) and low <= dynamicSL
     exitPrice = dynamicSL
@@ -219,6 +256,9 @@ if inTrade and not na(dynamicSL) and low <= dynamicSL
 
     inTrade := false
     dynamicSL := na
+    slMovedToEntry := false
+    lastExitBar := bar_index   // 🔴 ADD THIS
+
     if not na(slLine)
         line.delete(slLine)
         slLine := na
@@ -236,6 +276,9 @@ if sellCross and inTrade
  
     inTrade := false
     dynamicSL := na
+    slMovedToEntry := false
+    lastExitBar := bar_index   // 🔴 ADD THIS
+
     if not na(slLine)
         line.delete(slLine)
         slLine := na
