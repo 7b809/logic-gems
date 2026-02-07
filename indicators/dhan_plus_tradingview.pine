@@ -13,6 +13,7 @@ targetPercent = input.float(5, "Target %", step=0.1)
 lots          = input.int(4, "Number of Lots", minval=1)
 lotSize       = input.int(65, "Lot Size (Qty per lot)", minval=1) // Nifty=75, BankNifty=25, FinNifty=40, etc.
 webhookUrl    = input.string("https://webhook.dhan.co", "Webhook URL")
+showSRLabels = input.bool(true, "Show S/R Labels")
 
 // ==========================
 // 🕒 IST TIME FUNCTION
@@ -37,6 +38,10 @@ pl = ta.pivotlow(low, leftBars, rightBars)
 var line lastResLine = na
 var line lastSupLine = na
 
+// ✅ STORE LATEST STRUCTURE PRICES
+var float lastSupportPrice    = na
+var float lastResistancePrice = na
+
 // Resistance Logic
 if not na(ph)
     if not na(lastResLine)
@@ -45,6 +50,12 @@ if not na(ph)
     
     lastResLine := line.new(bar_index[rightBars], ph, bar_index, ph, color=color.new(color.red, 20), width=2, extend=extend.right)
 
+
+    // ✅ SAVE RESISTANCE PRICE
+    lastResistancePrice := ph
+    if showSRLabels and not na(ph)
+        label.new(bar_index[rightBars], ph, "R: " + str.tostring(ph) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+
 // Support Logic
 if not na(pl)
     if not na(lastSupLine)
@@ -52,6 +63,12 @@ if not na(pl)
         line.set_extend(lastSupLine, extend.none)
     
     lastSupLine := line.new(bar_index[rightBars], pl, bar_index, pl, color=color.new(color.green, 20), width=2, extend=extend.right)
+
+
+    // ✅ SAVE SUPPORT PRICE
+    lastSupportPrice := pl
+    if showSRLabels and not na(pl)
+        label.new(bar_index[rightBars], pl, "S: " + str.tostring(pl) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
 
 // ==========================
 // 📈 MA CALCULATION
@@ -91,7 +108,7 @@ secondExitQty := secondExitQty % 2 == 0 ? secondExitQty : secondExitQty + 1
 finalExitQty = remainingAfterFirst - secondExitQty
  
 sendWebhook(string action, float price, int quantity, string orderType, float target = na, float stoploss = na, string tag = "") =>
-    payload = '{"action":"' + action + '","price":' + (na(price) ? "null" : str.tostring(price)) + ',"quantity":' + (na(quantity) ? "null" : str.tostring(quantity)) + ',"orderType":"' + orderType + '","target":' + (na(target) ? "null" : str.tostring(target)) + ',"stoploss":' + (na(stoploss) ? "null" : str.tostring(stoploss)) + ',"symbol":"' + syminfo.tickerid + '","tag":"' + tag + '"}'
+    payload = '{"action":"' + action + '","price":' + (na(price) ? "null" : str.tostring(price)) + ',"quantity":' + (na(quantity) ? "null" : str.tostring(quantity)) + ',"orderType":"' + orderType + '","target":' + (na(target) ? "null" : str.tostring(target)) + ',"stoploss":' + (na(stoploss) ? "null" : str.tostring(stoploss)) + ',"support":' + (na(lastSupportPrice) ? "null" : str.tostring(lastSupportPrice)) + ',"resistance":' + (na(lastResistancePrice) ? "null" : str.tostring(lastResistancePrice)) + ',"symbol":"' + syminfo.tickerid + '","tag":"' + tag + '"}'
     alert(message=payload, freq=alert.freq_once_per_bar)
 
 // ==========================
