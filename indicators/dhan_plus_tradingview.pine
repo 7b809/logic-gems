@@ -14,6 +14,7 @@ lots          = input.int(4, "Number of Lots", minval=1)
 lotSize       = input.int(65, "Lot Size (Qty per lot)", minval=1) // Nifty=75, BankNifty=25, FinNifty=40, etc.
 webhookUrl    = input.string("https://webhook.dhan.co", "Webhook URL")
 showSRLabels = input.bool(true, "Show S/R Labels")
+supportSLPercent = input.float(5, "Support SL Buffer %", step=0.1)
 
 // ==========================
 // 🕒 IST TIME FUNCTION
@@ -21,6 +22,24 @@ showSRLabels = input.bool(true, "Show S/R Labels")
 get_ist_time(_time) =>
     ist_offset = 5 * 60 * 60 * 1000 + 30 * 60 * 1000
     str.format("{0,time,HH:mm:ss}", _time + ist_offset)
+
+roundToTick(price) =>
+    math.round(price / syminfo.mintick) * syminfo.mintick
+
+// ==========================
+// ✅ GLOBAL STRUCTURE PRICES (MUST BE ABOVE FUNCTION)
+// ==========================
+var float lastSupportPrice    = na
+var float lastResistancePrice = na
+
+var line slLine = na
+
+// ==========================
+// 📡 WEBHOOK FUNCTION  ✅ MUST BE HERE
+// ==========================
+sendWebhook(string action, float price, int quantity, string orderType, float target = na, float stoploss = na, string tag = "") =>
+    payload = '{"action":"' + action + '","price":' + (na(price) ? "null" : str.tostring(price)) + ',"quantity":' + (na(quantity) ? "null" : str.tostring(quantity)) + ',"orderType":"' + orderType + '","target":' + (na(target) ? "null" : str.tostring(target)) + ',"stoploss":' + (na(stoploss) ? "null" : str.tostring(stoploss)) + ',"support":' + (na(lastSupportPrice) ? "null" : str.tostring(lastSupportPrice)) + ',"resistance":' + (na(lastResistancePrice) ? "null" : str.tostring(lastResistancePrice)) + ',"symbol":"' + syminfo.tickerid + '","tag":"' + tag + '"}'
+    alert(message=payload, freq=alert.freq_once_per_bar)
 
 // ==========================
 // 📐 MA FUNCTIONS
@@ -38,9 +57,6 @@ pl = ta.pivotlow(low, leftBars, rightBars)
 var line lastResLine = na
 var line lastSupLine = na
 
-// ✅ STORE LATEST STRUCTURE PRICES
-var float lastSupportPrice    = na
-var float lastResistancePrice = na
 
 // Resistance Logic
 if not na(ph)
@@ -70,6 +86,8 @@ if not na(pl)
     if showSRLabels and not na(pl)
         label.new(bar_index[rightBars], pl, "S: " + str.tostring(pl) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
 
+
+
 // ==========================
 // 📈 MA CALCULATION
 // ==========================
@@ -89,11 +107,9 @@ sellCross = ta.crossover(slowMA, fastMA)
 var bool   inTrade      = false
 var float  entryPrice   = na
 var int    totalQty     = 0
-var int    remainingQty = 0
 var int    partialExit1 = 0
 var int    partialExit2 = 0
-var bool   stopLossMoved = false
-var float  breakevenSL   = na
+var float dynamicSL = na
 
 // Calculate quantities
 totalQty := lots * lotSize
@@ -106,28 +122,48 @@ remainingAfterFirst = totalQty - firstExitQty
 secondExitQty = math.floor(remainingAfterFirst / 2)
 secondExitQty := secondExitQty % 2 == 0 ? secondExitQty : secondExitQty + 1
 finalExitQty = remainingAfterFirst - secondExitQty
- 
-sendWebhook(string action, float price, int quantity, string orderType, float target = na, float stoploss = na, string tag = "") =>
-    payload = '{"action":"' + action + '","price":' + (na(price) ? "null" : str.tostring(price)) + ',"quantity":' + (na(quantity) ? "null" : str.tostring(quantity)) + ',"orderType":"' + orderType + '","target":' + (na(target) ? "null" : str.tostring(target)) + ',"stoploss":' + (na(stoploss) ? "null" : str.tostring(stoploss)) + ',"support":' + (na(lastSupportPrice) ? "null" : str.tostring(lastSupportPrice)) + ',"resistance":' + (na(lastResistancePrice) ? "null" : str.tostring(lastResistancePrice)) + ',"symbol":"' + syminfo.tickerid + '","tag":"' + tag + '"}'
-    alert(message=payload, freq=alert.freq_once_per_bar)
+
+// ==========================
+// 🔒 SUPPORT-BASED TRAILING SL
+// ==========================
+if inTrade and partialExit1 == 1 and not na(lastSupportPrice) and barstate.isconfirmed
+    supportBasedSL = roundToTick(lastSupportPrice * (1 + supportSLPercent / 100))
+
+    // Safety: SL must stay below current price
+    supportBasedSL := math.min(supportBasedSL, close * 0.999)
+
+    // SL only moves UP
+    if na(dynamicSL) or supportBasedSL > dynamicSL
+        dynamicSL := supportBasedSL
+
+        sendWebhook( "MODIFY_SL",na,na,"SL",na,dynamicSL,"SUPPORT_TRAIL_SL"        )
+
+        label.new(bar_index,dynamicSL,"🔒 SL Trailed to Support" +"\nSL: " + str.tostring(dynamicSL) +"\nSupport: " + str.tostring(lastSupportPrice) +"\nIST: " + get_ist_time(time),style=label.style_label_down,color=color.teal,textcolor=color.white,size=size.small        )
+
+
 
 // ==========================
 // 🚀 ENHANCED SIGNAL LOGIC
 // ==========================
 
+
 // 1. BUY SIGNAL
 if buyCross and not inTrade
     inTrade    := true
     entryPrice := low
-    breakevenSL := entryPrice
-    stopLossMoved := false
     partialExit1 := 0
     partialExit2 := 0
-    
-    // Send initial buy order
-    sendWebhook("BUY", close, totalQty, "LIMIT", entryPrice * (1 + targetPercent / 100), entryPrice * 0.985, "INITIAL_ENTRY")
 
-    label.new(bar_index, low, "BUY " + str.tostring(totalQty) + " @ " + str.tostring(close) + "\nTarget: " + str.tostring(entryPrice * (1 + targetPercent / 100)) + "\nSL: " + str.tostring(entryPrice * 0.985) + "\nIST: " + get_ist_time(time), style=label.style_label_up, color=color.green, textcolor=color.white)
+    // ENTRY SL FROM SUPPORT
+    supportSL = na(lastSupportPrice)? low * 0.99   : roundToTick(lastSupportPrice * (1 + supportSLPercent / 100))
+
+    dynamicSL := supportSL
+    dynamicSL := math.min(dynamicSL, entryPrice * 0.999)
+
+    // Send initial buy order
+    sendWebhook( "BUY",close,totalQty,"LIMIT",entryPrice * (1 + targetPercent / 100),dynamicSL,"INITIAL_ENTRY"    )
+
+    label.new(bar_index, low, "BUY " + str.tostring(totalQty) + " @ " + str.tostring(close) + "\nTarget: " + str.tostring(entryPrice * (1 + targetPercent / 100)) + "\nSL: " + str.tostring(dynamicSL) + "\nIST: " + get_ist_time(time), style=label.style_label_up, color=color.green, textcolor=color.white)
 
 // 2. FIRST TARGET HIT (Sell 50%)
 if inTrade and high >= entryPrice * (1 + targetPercent / 100) and partialExit1 == 0
@@ -136,12 +172,18 @@ if inTrade and high >= entryPrice * (1 + targetPercent / 100) and partialExit1 =
     // Send partial exit order
     sendWebhook("SELL", entryPrice * (1 + targetPercent / 100), firstExitQty, "LIMIT", na, na, "PARTIAL_EXIT_1")
 
-    // Move SL to breakeven
-    sendWebhook("MODIFY_SL", na, na, "SL", na, breakevenSL, "BREAKEVEN_SL")
+    // Move SL to support after partial exit
+    dynamicSL := na(lastSupportPrice) ? dynamicSL : roundToTick(lastSupportPrice * (1 + supportSLPercent / 100))
+    if not na(slLine)
+        line.delete(slLine)
 
-    stopLossMoved := true
-    
-    label.new(bar_index, high, "🎯 PARTIAL EXIT (" + str.tostring(firstExitQty) + " qty)" + "\nPrice: " + str.tostring(entryPrice * (1 + targetPercent / 100)) + "\nSL Moved to: " + str.tostring(breakevenSL) + "\nIST: " + get_ist_time(time), color=color.blue, textcolor=color.white, style=label.style_label_down)
+    slLine := line.new(bar_index,dynamicSL,bar_index + 1,dynamicSL,color=color.red,style=line.style_dotted)
+
+
+    sendWebhook( "MODIFY_SL",na,na,"SL",na,dynamicSL,"SUPPORT_SL_AFTER_PARTIAL"    )
+
+        
+    label.new(bar_index, high, "🎯 PARTIAL EXIT (" + str.tostring(firstExitQty) + " qty)" + "\nPrice: " + str.tostring(entryPrice * (1 + targetPercent / 100)) + "\nSL Moved to: " + str.tostring(dynamicSL) + "\nIST: " + get_ist_time(time), color=color.blue, textcolor=color.white, style=label.style_label_down)
 
 // 3. SECOND TARGET HIT (Sell 25% of original)
 if inTrade and partialExit1 == 1 and high >= entryPrice * (1 + targetPercent / 100) * (1 + targetPercent / 100) and partialExit2 == 0
@@ -160,17 +202,28 @@ if inTrade and partialExit2 == 1 and high >= entryPrice * math.pow((1 + targetPe
     sendWebhook("SELL", finalTarget, finalExitQty, "LIMIT", na, na, "FINAL_EXIT")
 
     inTrade := false
+    dynamicSL := na
+    if not na(slLine)
+        line.delete(slLine)
+        slLine := na
+
     
     label.new(bar_index, high, "🎯 FINAL EXIT (" + str.tostring(finalExitQty) + " qty)" + "\nPrice: " + str.tostring(finalTarget) + "\nTotal Profit Booked" + "\nIST: " + get_ist_time(time), color=color.orange, textcolor=color.white, style=label.style_label_down)
 
 // 5. STOP LOSS HIT
-if inTrade and low <= (stopLossMoved ? breakevenSL : entryPrice * 0.985)
-    exitPrice = stopLossMoved ? breakevenSL : entryPrice * 0.985
+if inTrade and not na(dynamicSL) and low <= dynamicSL
+    exitPrice = dynamicSL
     exitQty = totalQty - (partialExit1 == 1 ? firstExitQty : 0) - (partialExit2 == 1 ? secondExitQty : 0)
     
     sendWebhook("SELL", exitPrice, exitQty, "SL_MARKET", na, na, "STOPLOSS_HIT")
 
     inTrade := false
+    dynamicSL := na
+    if not na(slLine)
+        line.delete(slLine)
+        slLine := na
+
+
     
     label.new(bar_index, high, "🛑 STOP LOSS HIT\nExit Qty: " + str.tostring(exitQty) + "\nPrice: " + str.tostring(exitPrice) + "\nIST: " + get_ist_time(time), color=color.red, textcolor=color.white, style=label.style_label_down)
 
@@ -182,6 +235,12 @@ if sellCross and inTrade
         sendWebhook("SELL", close, exitQty, "MARKET", na, na, "SELL_SIGNAL_EXIT")
  
     inTrade := false
+    dynamicSL := na
+    if not na(slLine)
+        line.delete(slLine)
+        slLine := na
+
+
     
     label.new(bar_index, high, "SELL SIGNAL EXIT (" + str.tostring(exitQty) + " qty)" + "\nPrice: " + str.tostring(close) + "\nIST: " + get_ist_time(time), style=label.style_label_down, color=color.red, textcolor=color.white)
 
@@ -199,4 +258,4 @@ if barstate.islast
     table.cell(posTable, 0, 2, "Entry: " + (na(entryPrice) ? "N/A" : str.tostring(entryPrice)))
     table.cell(posTable, 0, 3, "Total Qty: " + str.tostring(totalQty))
     table.cell(posTable, 0, 4, "Remaining: " + str.tostring(totalQty - (partialExit1 == 1 ? firstExitQty : 0) - (partialExit2 == 1 ? secondExitQty : 0)))
-    table.cell(posTable, 0, 5, "Current SL: " + (stopLossMoved ? str.tostring(breakevenSL) : str.tostring(entryPrice * 0.985)))
+    table.cell(        posTable,0,5,"Current SL: " + (na(dynamicSL) ? "N/A" : str.tostring(dynamicSL))    )  
