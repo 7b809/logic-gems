@@ -4,9 +4,9 @@ indicator("Pivot Support & Resistance (Clean)", overlay=true, max_lines_count=20
 // ==========================
 // 🔧 CONFIG
 // ==========================
-leftBars     = input.int(33, "Left Strength")
-rightBars    = input.int(21, "Right Strength")
-showLabels   = input.bool(true, "Show Labels")
+leftBars   = input.int(33, "Left Strength")
+rightBars  = input.int(21, "Right Strength")
+showLabels = input.bool(true, "Show Labels")
 
 // ==========================
 // 🕒 IST TIME FUNCTION
@@ -22,36 +22,54 @@ ph = ta.pivothigh(high, leftBars, rightBars)
 pl = ta.pivotlow(low, leftBars, rightBars)
 
 // ==========================
-// 🧱 STATE
+// 🧱 STATE (LINES)
 // ==========================
 var line resLine = na
 var line supLine = na
 
 // ==========================
+// 🧱 STATE (VALUES)
+// ==========================
+var float lastResistance = na
+var float lastSupport    = na
+var string lastResTime   = "na"
+var string lastSupTime   = "na"
+
+// ==========================
 // 🔴 RESISTANCE
 // ==========================
 if not na(ph)
+    lastResistance := ph
+    lastResTime    := get_ist_time(time[rightBars])
+
     if not na(resLine)
         line.set_x2(resLine, bar_index[rightBars])
         line.set_extend(resLine, extend.none)
 
-    resLine := line.new(bar_index[rightBars], ph, bar_index, ph, width=2, color=color.new(color.red, 20), extend=extend.right)
+    resLine := line.new(bar_index[rightBars], ph,bar_index, ph,width=2,color=color.new(color.red, 20),extend=extend.right)
+
+    // 🔔 ALERT (Resistance updated)
+    alert("support_flag=0 | resistance_flag=1" + " | Support=" + str.tostring(lastSupport) + " | Resistance=" + str.tostring(lastResistance) + " | SupportTime=" + lastSupTime + " | ResistanceTime=" + lastResTime,alert.freq_once_per_bar_close)
 
     if showLabels
-        label.new(bar_index[rightBars], ph, "R: " + str.tostring(ph) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
-
+        label.new(    bar_index[rightBars], ph,    "R: " + str.tostring(ph) + "\nTime: " + lastResTime,    style=label.style_label_down,    color=color.red,    textcolor=color.white,    size=size.small)
 
 
 // ==========================
 // 🟢 SUPPORT
 // ==========================
 if not na(pl)
+    lastSupport := pl
+    lastSupTime := get_ist_time(time[rightBars])
+
     if not na(supLine)
         line.set_x2(supLine, bar_index[rightBars])
         line.set_extend(supLine, extend.none)
 
-    supLine := line.new(bar_index[rightBars], pl, bar_index, pl, width=2, color=color.new(color.green, 20), extend=extend.right)
+    supLine := line.new(bar_index[rightBars], pl,bar_index, pl,width=2,color=color.new(color.green, 20),extend=extend.right)
+
+    // 🔔 ALERT (Support updated)
+    alert("support_flag=1 | resistance_flag=0" + " | Support=" + str.tostring(lastSupport) + " | Resistance=" + str.tostring(lastResistance) + " | SupportTime=" + lastSupTime + " | ResistanceTime=" + lastResTime,alert.freq_once_per_bar_close)
 
     if showLabels
-        label.new(bar_index[rightBars], pl, "S: " + str.tostring(pl) + "\nTime: " + get_ist_time(time[rightBars]), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
-
+        label.new(    bar_index[rightBars], pl,    "S: " + str.tostring(pl) + "\nTime: " + lastSupTime,    style=label.style_label_up,    color=color.green,    textcolor=color.white,    size=size.small)
