@@ -292,13 +292,3 @@ if sellCross and inTrade
 // ==========================
 plot(fastMA, color=color.blue, linewidth=2, title="Fast MA")
 plot(slowMA, color=color.orange, linewidth=1, style=plot.style_stepline, title="Slow MA")
-
-// Display position info
-var table posTable = table.new(position.top_right, 4, 6, bgcolor=color.new(color.gray, 90))
-if barstate.islast
-    table.cell(posTable, 0, 0, "POSITION INFO", bgcolor=color.blue)
-    table.cell(posTable, 0, 1, "In Trade: " + str.tostring(inTrade))
-    table.cell(posTable, 0, 2, "Entry: " + (na(entryPrice) ? "N/A" : str.tostring(entryPrice)))
-    table.cell(posTable, 0, 3, "Total Qty: " + str.tostring(totalQty))
-    table.cell(posTable, 0, 4, "Remaining: " + str.tostring(totalQty - (partialExit1 == 1 ? firstExitQty : 0) - (partialExit2 == 1 ? secondExitQty : 0)))
-    table.cell(        posTable,0,5,"Current SL: " + (na(dynamicSL) ? "N/A" : str.tostring(dynamicSL))    )  
