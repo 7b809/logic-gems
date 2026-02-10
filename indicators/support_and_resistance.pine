@@ -1,75 +1,48 @@
 //@version=5
-indicator("Pivot Support & Resistance (Clean)", overlay=true, max_lines_count=20, max_labels_count=50)
+indicator("Pivot Support & Resistance (Clean + JSON Alerts)", overlay=true, max_lines_count=20, max_labels_count=50)
 
-// ==========================
-// 🔧 CONFIG
-// ==========================
-leftBars   = input.int(33, "Left Strength")
-rightBars  = input.int(21, "Right Strength")
-showLabels = input.bool(true, "Show Labels")
+// CONFIG
+leftBars=input.int(33,"Left Strength")
+rightBars=input.int(21,"Right Strength")
+showLabels=input.bool(true,"Show Labels")
 
-// ==========================
-// 🕒 IST TIME FUNCTION
-// ==========================
-get_ist_time(_time) =>
-    ist_offset = 5 * 60 * 60 * 1000 + 30 * 60 * 1000
-    str.format("{0,time,HH:mm:ss}", _time + ist_offset)
+// IST TIME
+get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
 
-// ==========================
-// 📊 PIVOT LOGIC
-// ==========================
-ph = ta.pivothigh(high, leftBars, rightBars)
-pl = ta.pivotlow(low, leftBars, rightBars)
+// SYMBOL & LINK
+symbol_id=str.replace(syminfo.tickerid,":","%3A")
+chart_link="https://www.tradingview.com/chart/?symbol="+symbol_id
 
-// ==========================
-// 🧱 STATE (LINES)
-// ==========================
-var line resLine = na
-var line supLine = na
+// PIVOTS
+ph=ta.pivothigh(close,leftBars,rightBars)
+pl=ta.pivotlow(close,leftBars,rightBars)
 
-// ==========================
-// 🧱 STATE (VALUES)
-// ==========================
-var float lastResistance = na
-var float lastSupport    = na
-var string lastResTime   = "na"
-var string lastSupTime   = "na"
+// STATE
+var line resLine=na
+var line supLine=na
+var float lastResistance=na
+var float lastSupport=na
+var string lastResTime="na"
+var string lastSupTime="na"
 
-// ==========================
-// 🔴 RESISTANCE
-// ==========================
+// RESISTANCE CREATED
 if not na(ph)
-    lastResistance := ph
-    lastResTime    := get_ist_time(time[rightBars])
-
+    lastResistance:=ph, lastResTime:=get_ist_time(time[rightBars])
     if not na(resLine)
-        line.set_x2(resLine, bar_index[rightBars])
-        line.set_extend(resLine, extend.none)
-
-    resLine := line.new(bar_index[rightBars], ph,bar_index, ph,width=2,color=color.new(color.red, 20),extend=extend.right)
-
-    // 🔔 ALERT (Resistance updated)
-    alert("support_flag=0 | resistance_flag=1" + " | Support=" + str.tostring(lastSupport) + " | Resistance=" + str.tostring(lastResistance) + " | SupportTime=" + lastSupTime + " | ResistanceTime=" + lastResTime,alert.freq_once_per_bar_close)
-
+        line.set_x2(resLine,bar_index[rightBars]), line.set_extend(resLine,extend.none)
+    resLine:=line.new(bar_index[rightBars],ph,bar_index,ph,width=2,color=color.new(color.red,20),extend=extend.right)
+    pivotId="RESISTANCE_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(ph)
+    alert("{\"type\":\"RESISTANCE_CREATED\",\"price\":"+str.tostring(ph)+",\"time_ist\":\""+lastResTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_support_price\":"+str.tostring(lastSupport)+",\"last_support_time\":\""+lastSupTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
     if showLabels
-        label.new(    bar_index[rightBars], ph,    "R: " + str.tostring(ph) + "\nTime: " + lastResTime,    style=label.style_label_down,    color=color.red,    textcolor=color.white,    size=size.small)
+        label.new(bar_index[rightBars],ph,"R: "+str.tostring(ph)+"\nTime: "+lastResTime,style=label.style_label_down,color=color.red,textcolor=color.white,size=size.small)
 
-
-// ==========================
-// 🟢 SUPPORT
-// ==========================
+// SUPPORT CREATED
 if not na(pl)
-    lastSupport := pl
-    lastSupTime := get_ist_time(time[rightBars])
-
+    lastSupport:=pl, lastSupTime:=get_ist_time(time[rightBars])
     if not na(supLine)
-        line.set_x2(supLine, bar_index[rightBars])
-        line.set_extend(supLine, extend.none)
-
-    supLine := line.new(bar_index[rightBars], pl,bar_index, pl,width=2,color=color.new(color.green, 20),extend=extend.right)
-
-    // 🔔 ALERT (Support updated)
-    alert("support_flag=1 | resistance_flag=0" + " | Support=" + str.tostring(lastSupport) + " | Resistance=" + str.tostring(lastResistance) + " | SupportTime=" + lastSupTime + " | ResistanceTime=" + lastResTime,alert.freq_once_per_bar_close)
-
+        line.set_x2(supLine,bar_index[rightBars]), line.set_extend(supLine,extend.none)
+    supLine:=line.new(bar_index[rightBars],pl,bar_index,pl,width=2,color=color.new(color.green,20),extend=extend.right)
+    pivotId="SUPPORT_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(pl)
+    alert("{\"type\":\"SUPPORT_CREATED\",\"price\":"+str.tostring(pl)+",\"time_ist\":\""+lastSupTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_resistance_price\":"+str.tostring(lastResistance)+",\"last_resistance_time\":\""+lastResTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
     if showLabels
-        label.new(    bar_index[rightBars], pl,    "S: " + str.tostring(pl) + "\nTime: " + lastSupTime,    style=label.style_label_up,    color=color.green,    textcolor=color.white,    size=size.small)
+        label.new(bar_index[rightBars],pl,"S: "+str.tostring(pl)+"\nTime: "+lastSupTime,style=label.style_label_up,color=color.green,textcolor=color.white,size=size.small)
