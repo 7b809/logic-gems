@@ -8,7 +8,7 @@ showLabels=input.bool(true,"Show Labels")
 
 // IST TIME
 get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
-
+ 
 // SYMBOL & LINK
 symbol_id=str.replace(syminfo.tickerid,":","%3A")
 chart_link="https://www.tradingview.com/chart/?symbol="+symbol_id
