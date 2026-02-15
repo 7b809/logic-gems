@@ -1,0 +1,179 @@
+//@version=5
+indicator("Original -  Support & Resistance (Clean + JSON Alerts)", overlay=true, max_lines_count=20, max_labels_count=100)
+
+// CONFIG
+leftBars=input.int(33,"Left Strength")
+rightBars=input.int(21,"Right Strength")
+showLabels=input.bool(true,"Show Labels")
+
+// ==========================
+// VOLATILITY FILTER
+// ==========================
+atrLength = input.int(14, "ATR Length")
+volMultiplier = input.float(1, "Volatility Multiplier")
+
+atrValue = ta.atr(atrLength)
+candleRange = high - low
+marketStable = candleRange <= atrValue * volMultiplier
+
+// ==========================
+// IST TIME
+// ==========================
+get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
+ 
+// SYMBOL & LINK
+symbol_id=str.replace(syminfo.tickerid,":","%3A")
+chart_link="https://www.tradingview.com/chart/?symbol="+symbol_id
+
+// PIVOTS
+ph=ta.pivothigh(close,leftBars,rightBars)
+pl=ta.pivotlow(close,leftBars,rightBars)
+
+// STATE
+var line resLine=na
+var line supLine=na
+
+var float lastResistance=na
+var float prevResistance=na
+var float lastSupport=na
+var float prevSupport=na
+
+var string lastResTime="na"
+var string lastSupTime="na"
+
+var int lastResBar=na
+var int lastSupBar=na
+
+var bool resistanceConfirmed=false
+var bool supportConfirmed=false
+
+// ==========================
+// MARKET STATUS TABLE
+// ==========================
+var table statusTable = table.new(position.top_right, 1, 1)
+
+if not marketStable
+    table.cell(statusTable, 0, 0,        "⚠ MARKET NOT STABLE\nSignals Disabled",        text_color=color.white,        bgcolor=color.red)
+else
+    table.cell(statusTable, 0, 0,        "Market Stable",        text_color=color.white,        bgcolor=color.green)
+
+
+// ==========================
+// RESISTANCE CREATED
+// ==========================
+if marketStable and not na(ph)
+
+    prevResistance := lastResistance
+    lastResistance:=ph
+    lastResTime:=get_ist_time(time[rightBars])
+    lastResBar:=bar_index[rightBars]
+    resistanceConfirmed := true
+
+    if not na(resLine)
+        line.set_x2(resLine,bar_index[rightBars]), line.set_extend(resLine,extend.none)
+
+    resLine:=line.new(bar_index[rightBars],ph,bar_index,ph,width=2,color=color.new(color.red,20),extend=extend.right)
+
+    pivotId="RESISTANCE_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(ph)
+
+    alert("{\"type\":\"RESISTANCE_CREATED\",\"price\":"+str.tostring(ph)+",\"time_ist\":\""+lastResTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_support_price\":"+str.tostring(lastSupport)+",\"last_support_time\":\""+lastSupTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+    if showLabels
+        label.new(bar_index[rightBars],ph,
+             "R Created\nPrice: "+str.tostring(ph)+
+             "\nTime: "+lastResTime,
+             style=label.style_label_down,
+             color=color.red,
+             textcolor=color.white,
+             size=size.small)
+
+        confirmTime=get_ist_time(time)
+        label.new(bar_index,close,
+             "R CONFIRMED\nPivot: "+str.tostring(ph)+
+             "\nConfirm Price: "+str.tostring(close)+
+             "\nConfirm Time: "+confirmTime,
+             style=label.style_label_down,
+             color=color.maroon,
+             textcolor=color.white,
+             size=size.small)
+
+
+// ==========================
+// SUPPORT CREATED
+// ==========================
+if marketStable and not na(pl)
+
+    prevSupport := lastSupport
+    lastSupport:=pl
+    lastSupTime:=get_ist_time(time[rightBars])
+    lastSupBar:=bar_index[rightBars]
+    supportConfirmed := true
+
+    if not na(supLine)
+        line.set_x2(supLine,bar_index[rightBars]), line.set_extend(supLine,extend.none)
+
+    supLine:=line.new(bar_index[rightBars],pl,bar_index,pl,width=2,color=color.new(color.green,20),extend=extend.right)
+
+    pivotId="SUPPORT_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(pl)
+
+    alert("{\"type\":\"SUPPORT_CREATED\",\"price\":"+str.tostring(pl)+",\"time_ist\":\""+lastSupTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_resistance_price\":"+str.tostring(lastResistance)+",\"last_resistance_time\":\""+lastResTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+    if showLabels
+        label.new(bar_index[rightBars],pl,
+             "S Created\nPrice: "+str.tostring(pl)+
+             "\nTime: "+lastSupTime,
+             style=label.style_label_up,
+             color=color.green,
+             textcolor=color.white,
+             size=size.small)
+
+        confirmTime=get_ist_time(time)
+        label.new(bar_index,close,
+             "S CONFIRMED\nPivot: "+str.tostring(pl)+
+             "\nConfirm Price: "+str.tostring(close)+
+             "\nConfirm Time: "+confirmTime,
+             style=label.style_label_up,
+             color=color.teal,
+             textcolor=color.white,
+             size=size.small)
+
+
+// =====================================================
+// TOUCH LOGIC AFTER CONFIRMATION
+// =====================================================
+
+buyCondition = resistanceConfirmed and (     (not na(lastSupport) and low <= lastSupport and high >= lastSupport) or     (not na(prevSupport) and low <= prevSupport and high >= prevSupport))
+
+sellCondition = supportConfirmed and (     (not na(lastResistance) and low <= lastResistance and high >= lastResistance) or     (not na(prevResistance) and low <= prevResistance and high >= prevResistance))
+
+
+// ==========================
+// BUY ALERT
+// ==========================
+if marketStable and buyCondition
+
+    buyTime=get_ist_time(time)
+    buyPivotId="BUY_TOUCH_"+str.tostring(bar_index)+"_"+str.tostring(close)
+
+    alert("{\"type\":\"BUY_SUPPORT_TOUCHED_AFTER_R_CONFIRM\",\"price\":"+str.tostring(close)+",\"time_ist\":\""+buyTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index)+",\"timestamp\":"+str.tostring(time)+",\"pivot_id\":\""+buyPivotId+"\",\"last_support_price\":"+str.tostring(lastSupport)+",\"last_support_time\":\""+lastSupTime+"\",\"last_resistance_price\":"+str.tostring(lastResistance)+",\"last_resistance_time\":\""+lastResTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+    if showLabels
+        label.new(bar_index,low,        "BUY\nPrice: "+str.tostring(close)+            "\nTime: "+buyTime+            "\nTimestamp: "+str.tostring(time),            style=label.style_label_up,            color=color.lime,            textcolor=color.black,            size=size.normal)
+
+    resistanceConfirmed := false
+
+
+// ==========================
+// SELL ALERT
+// ==========================
+if marketStable and sellCondition
+
+    sellTime=get_ist_time(time)
+    sellPivotId="SELL_TOUCH_"+str.tostring(bar_index)+"_"+str.tostring(close)
+
+    alert("{\"type\":\"SELL_RESISTANCE_TOUCHED_AFTER_S_CONFIRM\",\"price\":"+str.tostring(close)+",\"time_ist\":\""+sellTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index)+",\"timestamp\":"+str.tostring(time)+",\"pivot_id\":\""+sellPivotId+"\",\"last_support_price\":"+str.tostring(lastSupport)+",\"last_support_time\":\""+lastSupTime+"\",\"last_resistance_price\":"+str.tostring(lastResistance)+",\"last_resistance_time\":\""+lastResTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+    if showLabels
+        label.new(bar_index,high,            "SELL\nPrice: "+str.tostring(close)+            "\nTime: "+sellTime+            "\nTimestamp: "+str.tostring(time),            style=label.style_label_down,            color=color.orange,            textcolor=color.white,            size=size.normal)
+
+    supportConfirmed := false
