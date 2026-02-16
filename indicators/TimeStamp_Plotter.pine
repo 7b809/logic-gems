@@ -1,0 +1,44 @@
+//@version=5
+indicator("Custom Date-Time Marker", overlay=true, max_labels_count=50)
+
+// ==============================
+// INPUTS
+// ==============================
+
+// Default to today date
+inputYear  = input.int(year(time),  "Year")
+inputMonth = input.int(month(time), "Month")
+inputDay   = input.int(dayofmonth(time), "Day")
+
+inputHour   = input.int(11, "Hour (24h format)")
+inputMinute = input.int(5,  "Minute")
+
+showLabels = input.bool(true, "Show Label")
+
+// ==============================
+// BUILD TARGET TIMESTAMP
+// ==============================
+targetTimestamp = timestamp("Asia/Kolkata",
+     inputYear, inputMonth, inputDay,
+     inputHour, inputMinute)
+
+// ==============================
+// DETECT MATCHING BAR
+// ==============================
+
+isTargetBar = (time >= targetTimestamp and time[1] < targetTimestamp)
+
+// ==============================
+// LABEL
+// ==============================
+
+if isTargetBar and showLabels
+    label.new(bar_index, close,
+        "⏰ Time Marker\n" +
+        "Price: " + str.tostring(close) +
+        "\nTimestamp: " + str.tostring(time) +
+        "\nTime: " + str.format("{0,time,HH:mm}", time),
+        style=label.style_label_up,
+        color=color.blue,
+        textcolor=color.white,
+        size=size.small)
