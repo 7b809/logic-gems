@@ -1,101 +1,130 @@
 //@version=5
-indicator("Original -  Support & Resistance (Clean + JSON Alerts)", overlay=true, max_lines_count=20, max_labels_count=100)
+indicator("Original - Support & Resistance (Full Confirm + Breakout)", overlay=true, max_lines_count=20, max_labels_count=300)
 
+// ==========================
 // CONFIG
-leftBars=input.int(33,"Left Strength")
-rightBars=input.int(21,"Right Strength")
-showLabels=input.bool(true,"Show Labels")
+// ==========================
+leftBars = input.int(33,"Left Strength")
+rightBars = input.int(21,"Right Strength")
+showLabels = input.bool(true,"Show Labels")
+preAlertPercent = input.float(0.90,"Pre-Resistance Alert % (0.90 = 90%)")
+maxPrePoints = input.float(5.0,"Max Pre-Alert Threshold (Points)")
 
+// ==========================
 // IST TIME
+// ==========================
 get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
- 
+
+// ==========================
 // SYMBOL & LINK
+// ==========================
 symbol_id=str.replace(syminfo.tickerid,":","%3A")
 chart_link="https://www.tradingview.com/chart/?symbol="+symbol_id
 
+// ==========================
+// UNIVERSAL ALERT FUNCTION
+// ==========================
+sendEvent(_type,_price,_extraPrice,_pivotId)=> alert("{\"type\":\""+_type+"\",\"price\":"+str.tostring(_price)+",\"extra_price\":"+str.tostring(_extraPrice)+",\"pivot_id\":\""+_pivotId+"\",\"time_ist\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+// ==========================
+// UNIVERSAL LABEL FUNCTION
+// ==========================
+drawLabel(_x,_y,_text,_style,_bg,_txt)=> showLabels ? label.new(_x,_y,_text,style=_style,color=_bg,textcolor=_txt,size=size.small) : na
+
+// ==========================
 // PIVOTS
+// ==========================
 ph=ta.pivothigh(close,leftBars,rightBars)
 pl=ta.pivotlow(close,leftBars,rightBars)
 
+// ==========================
 // STATE
+// ==========================
 var line resLine=na
 var line supLine=na
 var float lastResistance=na
 var float lastSupport=na
-var string lastResTime="na"
-var string lastSupTime="na"
+var bool preResTriggered=false
+var bool breakoutTriggered=false
 
-// ==========================
-// RESISTANCE CREATED
-// ==========================
+// =====================================================
+// ================= RESISTANCE CREATED
+// =====================================================
 if not na(ph)
-    lastResistance:=ph
-    lastResTime:=get_ist_time(time[rightBars])
+
+    pivotBar = bar_index[rightBars]
+    lastResistance := ph
+    preResTriggered := false
+    breakoutTriggered := false
 
     if not na(resLine)
-        line.set_x2(resLine,bar_index[rightBars]), line.set_extend(resLine,extend.none)
+        line.set_x2(resLine,pivotBar), line.set_extend(resLine,extend.none)
 
-    resLine:=line.new(bar_index[rightBars],ph,bar_index,ph,width=2,color=color.new(color.red,20),extend=extend.right)
+    resLine := line.new(pivotBar,ph,bar_index,ph,width=2,color=color.new(color.red,20),extend=extend.right)
 
-    pivotId="RESISTANCE_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(ph)
+    pivotId="RES_"+str.tostring(pivotBar)
 
-    alert("{\"type\":\"RESISTANCE_CREATED\",\"price\":"+str.tostring(ph)+",\"time_ist\":\""+lastResTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_support_price\":"+str.tostring(lastSupport)+",\"last_support_time\":\""+lastSupTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+    sendEvent("RESISTANCE_CREATED",ph,0.0,pivotId)
+    drawLabel(pivotBar,ph,"R Created\nPrice: "+str.tostring(ph),label.style_label_down,color.red,color.white)
 
-    if showLabels
-        // Created label (existing)
-        label.new(bar_index[rightBars],ph,
-             "R Created\nPrice: "+str.tostring(ph)+
-             "\nTime: "+lastResTime,
-             style=label.style_label_down,
-             color=color.red,
-             textcolor=color.white,
-             size=size.small)
-
-        // CONFIRMATION label (NEW)
-        confirmTime=get_ist_time(time)
-        label.new(bar_index,close,
-             "R CONFIRMED\nPivot: "+str.tostring(ph)+
-             "\nConfirm Price: "+str.tostring(close)+
-             "\nConfirm Time: "+confirmTime,
-             style=label.style_label_down,
-             color=color.maroon,
-             textcolor=color.white,
-             size=size.small)
+    sendEvent("RESISTANCE_CONFIRMED",ph,close,pivotId)
+    drawLabel(bar_index,close,"R CONFIRMED\nPivot: "+str.tostring(ph)+"\nConfirm: "+str.tostring(close),label.style_label_down,color.maroon,color.white)
 
 
-// ==========================
-// SUPPORT CREATED
-// ==========================
+// =====================================================
+// ================= SUPPORT CREATED
+// =====================================================
 if not na(pl)
-    lastSupport:=pl
-    lastSupTime:=get_ist_time(time[rightBars])
+
+    pivotBar = bar_index[rightBars]
+    lastSupport := pl
 
     if not na(supLine)
-        line.set_x2(supLine,bar_index[rightBars]), line.set_extend(supLine,extend.none)
+        line.set_x2(supLine,pivotBar), line.set_extend(supLine,extend.none)
 
-    supLine:=line.new(bar_index[rightBars],pl,bar_index,pl,width=2,color=color.new(color.green,20),extend=extend.right)
+    supLine := line.new(pivotBar,pl,bar_index,pl,width=2,color=color.new(color.green,20),extend=extend.right)
 
-    pivotId="SUPPORT_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(pl)
+    pivotId="SUP_"+str.tostring(pivotBar)
 
-    alert("{\"type\":\"SUPPORT_CREATED\",\"price\":"+str.tostring(pl)+",\"time_ist\":\""+lastSupTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_resistance_price\":"+str.tostring(lastResistance)+",\"last_resistance_time\":\""+lastResTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+    sendEvent("SUPPORT_CREATED",pl,0.0,pivotId)
+    drawLabel(pivotBar,pl,"S Created\nPrice: "+str.tostring(pl),label.style_label_up,color.green,color.white)
 
-    if showLabels
-        // Created label (existing)
-        label.new(bar_index[rightBars],pl,
-             "S Created\nPrice: "+str.tostring(pl)+
-             "\nTime: "+lastSupTime,
-             style=label.style_label_up,
-             color=color.green,
-             textcolor=color.white,
-             size=size.small)
+    sendEvent("SUPPORT_CONFIRMED",pl,close,pivotId)
+    drawLabel(bar_index,close,"S CONFIRMED\nPivot: "+str.tostring(pl)+"\nConfirm: "+str.tostring(close),label.style_label_up,color.teal,color.white)
 
-        // CONFIRMATION label (NEW)
-        confirmTime=get_ist_time(time)
-        label.new(bar_index,close,
-             "S CONFIRMED\nPivot: "+str.tostring(pl)+
-             "\nConfirm Price: "+str.tostring(close)+
-             "\nConfirm Time: "+confirmTime,
-             style=label.style_label_up,
-             color=color.teal,
-             textcolor=color.white,
-             size=size.small)
+
+// =====================================================
+// ================= PRE-RESISTANCE ALERT (CAPPED)
+// =====================================================
+percentDistance = not na(lastResistance) ? lastResistance * (1 - preAlertPercent) : na
+thresholdPoints = not na(percentDistance) ? math.min(percentDistance,maxPrePoints) : na
+preLevel = not na(lastResistance) ? lastResistance - thresholdPoints : na
+
+if not na(lastResistance) and not preResTriggered
+    if close >= preLevel and close < lastResistance
+
+        sendEvent("RESISTANCE_PRE_ALERT",lastResistance,close,"PRE")
+        drawLabel(bar_index,close,"⚠ PRE-RESISTANCE\nNow: "+str.tostring(close)+"\nResistance: "+str.tostring(lastResistance)+"\nThreshold: "+str.tostring(thresholdPoints),label.style_label_down,color.orange,color.white)
+
+        preResTriggered := true
+
+
+// =====================================================
+// ================= RESISTANCE BREAKOUT (FULL BODY ABOVE)
+// =====================================================
+if not na(lastResistance) and not breakoutTriggered
+
+    fullBreakout =
+         open  > lastResistance and
+         close > lastResistance and
+         low   > lastResistance and
+         open[1]  > lastResistance and
+         close[1] > lastResistance and
+         low[1]   > lastResistance
+
+    if fullBreakout
+
+        sendEvent("RESISTANCE_BREAKOUT_BUY",lastResistance,close,"BREAK")
+        drawLabel(bar_index,close,"🚀 R BREAKOUT BUY\nBreak: "+str.tostring(close)+"\nResistance: "+str.tostring(lastResistance),label.style_label_up,color.lime,color.black)
+
+        breakoutTriggered := true
