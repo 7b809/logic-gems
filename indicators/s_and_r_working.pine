@@ -1,147 +1,102 @@
 //@version=5
-indicator("Original -  Support & Resistance (Clean + JSON Alerts)", overlay=true, max_lines_count=20, max_labels_count=200)
+indicator("temp - Support & Resistance (Auto Opposite Trade PRO)", overlay=true, max_lines_count=50, max_labels_count=500)
 
+// ==========================
 // CONFIG
-leftBars=input.int(33,"Left Strength")
-rightBars=input.int(21,"Right Strength")
-showLabels=input.bool(true,"Master Show Labels")
+// ==========================
+leftBars  = input.int(33,"Left Strength")
+rightBars = input.int(21,"Right Strength")
 
-// Threshold Filter
-priceThreshold = input.float(80.0, "Minimum Price Threshold (₹)")
+showPivotLabels      = input.bool(true,"Show Pivot Labels")
+showConfirmLabels    = input.bool(true,"Show Confirm Labels")
+showOppositeLabels   = input.bool(true,"Show Opposite Trade Label")
 
-// Individual Label Controls
-showResCreatedLabel = input.bool(true, "Show Resistance Created Label")
-showResConfirmLabel = input.bool(true, "Show Resistance Confirmed Label")
-showSupCreatedLabel = input.bool(true, "Show Support Created Label")
-showSupConfirmLabel = input.bool(true, "Show Support Confirmed Label")
-
-// NEW BUY Controls
-showBuyLabels = input.bool(true, "Show BUY Labels")
-
+// ==========================
 // IST TIME
+// ==========================
 get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
- 
-// SYMBOL & LINK
-symbol_id=str.replace(syminfo.tickerid,":","%3A")
-chart_link="https://www.tradingview.com/chart/?symbol="+symbol_id
 
+// ==========================
+// SYMBOL
+// ==========================
+symbol_raw  = syminfo.tickerid
+symbol_name = syminfo.ticker
+chart_link  = "https://www.tradingview.com/chart/?symbol=NSE:"+symbol_name
+
+// ==========================
+// OPPOSITE STRIKE FUNCTION
+// ==========================
+getOpposite(_sym)=>str.contains(_sym,"C")?str.replace(_sym,"C","P"):str.contains(_sym,"P")?str.replace(_sym,"P","C"):_sym
+
+// ==========================
+// UNIVERSAL ALERT FUNCTION (ONE LINE ONLY)
+// ==========================
+sendEvent(_num,_type,_pivotPrice,_confirmPrice,_pivotId,_oppSym)=>alert("{\"num\":\""+_num+"\",\"type\":\""+_type+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol_raw\":\""+symbol_raw+"\",\"opposite_symbol\":\""+_oppSym+"\",\"pivot_price\":"+str.tostring(_pivotPrice)+",\"confirm_price\":"+str.tostring(_confirmPrice)+",\"pivot_id\":\""+_pivotId+"\",\"time_ist\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+",\"current_url\":\""+chart_link+"\",\"opposite_url\":\"https://www.tradingview.com/chart/?symbol=NSE:"+_oppSym+"\"}",alert.freq_once_per_bar_close)
+
+// ==========================
+// LABEL FUNCTIONS
+// ==========================
+drawPivotLabel(_x,_y,_text,_style,_bg,_txt)=>showPivotLabels?label.new(_x,_y,_text+"\nTime: "+get_ist_time(time),style=_style,color=_bg,textcolor=_txt,size=size.small):na
+drawConfirmLabel(_x,_y,_text,_style,_bg,_txt)=>showConfirmLabels?label.new(_x,_y,_text+"\nTime: "+get_ist_time(time),style=_style,color=_bg,textcolor=_txt,size=size.small):na
+drawOppositeLabel(_x,_y,_text,_style,_bg,_txt)=>showOppositeLabels?label.new(_x,_y,_text+"\nTime: "+get_ist_time(time),style=_style,color=_bg,textcolor=_txt,size=size.small):na
+
+// ==========================
 // PIVOTS
-ph=ta.pivothigh(close,leftBars,rightBars)
-pl=ta.pivotlow(close,leftBars,rightBars)
+// ==========================
+ph = ta.pivothigh(close,leftBars,rightBars)
+pl = ta.pivotlow(close,leftBars,rightBars)
 
+// ==========================
 // STATE
-var line resLine=na
-var line supLine=na
-var float lastResistance=na
-var float lastSupport=na
-var string lastResTime="na"
-var string lastSupTime="na"
-
-// NEW STATE
-var bool resistanceConfirmed = false
-
 // ==========================
-// RESISTANCE CREATED
-// ==========================
+var line resLine = na
+var line supLine = na
+
+// =====================================================
+// ================= RESISTANCE
+// =====================================================
 if not na(ph)
-    lastResistance:=ph
-    lastResTime:=get_ist_time(time[rightBars])
-    resistanceConfirmed := true
 
+    pivotBar = bar_index[rightBars]
+    pivotId  = "R_"+str.tostring(time)
+    opposite_symbol = getOpposite(symbol_name)
+
+    // Pivot Label
+    drawPivotLabel(pivotBar,ph,"R\nPrice: "+str.tostring(ph),label.style_label_down,color.red,color.white)
+
+    // Extend Line
     if not na(resLine)
-        line.set_x2(resLine,bar_index[rightBars]), line.set_extend(resLine,extend.none)
+        line.set_x2(resLine,pivotBar), line.set_extend(resLine,extend.none)
 
-    resLine:=line.new(bar_index[rightBars],ph,bar_index,ph,width=2,color=color.new(color.red,20),extend=extend.right)
+    resLine := line.new(pivotBar,ph,bar_index,ph,width=2,color=color.new(color.red,20),extend=extend.right)
 
-    pivotId="RESISTANCE_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(ph)
+    // Confirm Label
+    drawConfirmLabel(bar_index,close,"R CONFIRMED",label.style_label_down,color.maroon,color.white)
 
-    if ph > priceThreshold
-        alert("{\"type\":\"RESISTANCE_CREATED\",\"price\":"+str.tostring(ph)+",\"time_ist\":\""+lastResTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_support_price\":"+str.tostring(lastSupport)+",\"last_support_time\":\""+lastSupTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+    if barstate.isconfirmed
 
-    if showLabels and showResCreatedLabel
-        label.new(bar_index[rightBars],ph,
-             "R Created\nPrice: "+str.tostring(ph)+
-             "\nTime: "+lastResTime,
-             style=label.style_label_down,
-             color=color.red,
-             textcolor=color.white,
-             size=size.small)
+        // 1️⃣ Opposite Trade Label FIRST
+        drawOppositeLabel(bar_index,close,"PLACE OPPOSITE STRIKE\n"+opposite_symbol,label.style_label_down,color.orange,color.white)
 
-    if showLabels and showResConfirmLabel
-        confirmTime=get_ist_time(time)
-        label.new(bar_index,close,
-             "R CONFIRMED\nPivot: "+str.tostring(ph)+
-             "\nConfirm Price: "+str.tostring(close)+
-             "\nConfirm Time: "+confirmTime,
-             style=label.style_label_down,
-             color=color.maroon,
-             textcolor=color.white,
-             size=size.small)
+        // 2️⃣ Send Alert with num = 2
+        sendEvent("2","PLACE_OPPOSITE_TRADE",ph,close,pivotId,opposite_symbol)
 
-
-// ==========================
-// SUPPORT CREATED
-// ==========================
+// =====================================================
+// ================= SUPPORT
+// =====================================================
 if not na(pl)
-    lastSupport:=pl
-    lastSupTime:=get_ist_time(time[rightBars])
+
+    pivotBar = bar_index[rightBars]
+    pivotId  = "S_"+str.tostring(time)
+
+    drawPivotLabel(pivotBar,pl,"S\nPrice: "+str.tostring(pl),label.style_label_up,color.green,color.white)
 
     if not na(supLine)
-        line.set_x2(supLine,bar_index[rightBars]), line.set_extend(supLine,extend.none)
+        line.set_x2(supLine,pivotBar), line.set_extend(supLine,extend.none)
 
-    supLine:=line.new(bar_index[rightBars],pl,bar_index,pl,width=2,color=color.new(color.green,20),extend=extend.right)
+    supLine := line.new(pivotBar,pl,bar_index,pl,width=2,color=color.new(color.green,20),extend=extend.right)
 
-    pivotId="SUPPORT_"+str.tostring(bar_index[rightBars])+"_"+str.tostring(pl)
+    drawConfirmLabel(bar_index,close,"S CONFIRMED",label.style_label_up,color.teal,color.white)
 
-    if pl > priceThreshold
-        alert("{\"type\":\"SUPPORT_CREATED\",\"price\":"+str.tostring(pl)+",\"time_ist\":\""+lastSupTime+"\",\"timeframe\":\""+timeframe.period+"\",\"bar_index\":"+str.tostring(bar_index[rightBars])+",\"timestamp\":"+str.tostring(time[rightBars])+",\"pivot_id\":\""+pivotId+"\",\"last_resistance_price\":"+str.tostring(lastResistance)+",\"last_resistance_time\":\""+lastResTime+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
-
-    if showLabels and showSupCreatedLabel
-        label.new(bar_index[rightBars],pl,
-             "S Created\nPrice: "+str.tostring(pl)+
-             "\nTime: "+lastSupTime,
-             style=label.style_label_up,
-             color=color.green,
-             textcolor=color.white,
-             size=size.small)
-
-    if showLabels and showSupConfirmLabel
-        confirmTime=get_ist_time(time)
-        label.new(bar_index,close,
-             "S CONFIRMED\nPivot: "+str.tostring(pl)+
-             "\nConfirm Price: "+str.tostring(close)+
-             "\nConfirm Time: "+confirmTime,
-             style=label.style_label_up,
-             color=color.teal,
-             textcolor=color.white,
-             size=size.small)
-
-    // ✅ NEW BUY ALERT WHEN SUPPORT CONFIRMED
-    if showBuyLabels
-        label.new(bar_index,close,
-             "BUY (Support Confirmed)",
-             style=label.style_label_down,
-             color=color.blue,
-             textcolor=color.white,
-             size=size.small)
-
-        alert("{\"type\":\"BUY_SUPPORT_CONFIRMED\",\"price\":"+str.tostring(close)+",\"support\":"+str.tostring(pl)+",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
-
-
-// ==========================
-// NEW LOGIC
-// FALL FROM CONFIRMED RESISTANCE → TOUCH CURRENT SUPPORT
-// ==========================
-if resistanceConfirmed and not na(lastSupport)
-    if low <= lastSupport
-        if showBuyLabels
-            label.new(bar_index,lastSupport,
-                 "BUY (Retest Support)",
-                 style=label.style_label_up,
-                 color=color.navy,
-                 textcolor=color.white,
-                 size=size.small)
-
-        alert("{\"type\":\"BUY_RETEST_SUPPORT\",\"price\":"+str.tostring(lastSupport)+",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
-
-        resistanceConfirmed := false  
+    if barstate.isconfirmed
+        sendEvent("1","SUPPORT_CONFIRM",pl,close,pivotId,"NA")
