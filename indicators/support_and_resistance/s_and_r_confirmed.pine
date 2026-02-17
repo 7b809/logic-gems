@@ -1,0 +1,162 @@
+//@version=5
+indicator("Master - S/R (Created + Confirmed Lines + Break Alerts)", overlay=true, max_lines_count=200, max_labels_count=500)
+
+// ==========================
+// CONFIG
+// ==========================
+leftBars  = input.int(33,"Left Strength")
+rightBars = input.int(21,"Right Strength")
+
+// ---- Resistance Controls
+showResCreatedLabel   = input.bool(true,"Show Resistance Created Label")
+showResConfirmLabel   = input.bool(true,"Show Resistance Confirmed Label")
+showResCreatedLine    = input.bool(true,"Show Resistance Created Line")
+showResConfirmLine    = input.bool(true,"Show Resistance Confirmed Line")
+
+// ---- Support Controls
+showSupCreatedLabel   = input.bool(true,"Show Support Created Label")
+showSupConfirmLabel   = input.bool(true,"Show Support Confirmed Label")
+showSupCreatedLine    = input.bool(true,"Show Support Created Line")
+showSupConfirmLine    = input.bool(true,"Show Support Confirmed Line")
+
+// ==========================
+// IST TIME
+// ==========================
+get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
+
+// ==========================
+// SYMBOL
+// ==========================
+symbol_raw  = syminfo.tickerid
+symbol_name = syminfo.ticker
+chart_link  = "https://www.tradingview.com/chart/?symbol=NSE:"+symbol_name
+
+// ==========================
+// UNIVERSAL ALERT FUNCTION (ONE LINE)
+// ==========================
+sendEvent(_type,_pivotPrice,_confirmPrice,_pivotId)=>alert("{\"type\":\""+_type+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol_raw\":\""+symbol_raw+"\",\"pivot_price\":"+str.tostring(_pivotPrice)+",\"confirm_price\":"+str.tostring(_confirmPrice)+",\"pivot_id\":\""+_pivotId+"\",\"time_ist\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+// ==========================
+// LABEL FUNCTION
+// ==========================
+drawLabel(_cond,_x,_y,_text,_style,_bg,_txt)=>_cond?label.new(_x,_y,_text+"\nTime: "+get_ist_time(time),style=_style,color=_bg,textcolor=_txt,size=size.small):na
+
+// ==========================
+// PIVOTS
+// ==========================
+ph = ta.pivothigh(close,leftBars,rightBars)
+pl = ta.pivotlow(close,leftBars,rightBars)
+
+// ==========================
+// STATE
+// ==========================
+var line resCreatedLine  = na
+var line resConfirmLine  = na
+var line supCreatedLine  = na
+var line supConfirmLine  = na
+
+var float lastResistance = na
+var float lastSupport    = na
+
+var bool resBreakTriggered = false
+var bool supBreakTriggered = false
+
+// =====================================================
+// ================= RESISTANCE
+// =====================================================
+if not na(ph)
+
+    pivotBar = bar_index[rightBars]
+    lastResistance := ph
+    resBreakTriggered := false
+
+    // Stop previous created line
+    if not na(resCreatedLine)
+        line.set_x2(resCreatedLine,pivotBar)
+        line.set_extend(resCreatedLine,extend.none)
+
+    // Created Line
+    if showResCreatedLine
+        resCreatedLine := line.new(pivotBar,ph,bar_index,ph,width=2,color=color.red,extend=extend.right)
+
+    // Confirm Line
+    if showResConfirmLine
+        resConfirmLine := line.new(bar_index,ph,bar_index+rightBars,ph,width=2,color=color.maroon,extend=extend.none)
+
+    pivotId="RES_"+str.tostring(time)
+
+    drawLabel(showResCreatedLabel,pivotBar,ph,"R CREATED\nPrice: "+str.tostring(ph),label.style_label_down,color.red,color.white)
+    drawLabel(showResConfirmLabel,bar_index,close,"R CONFIRMED\nConfirm: "+str.tostring(close),label.style_label_down,color.maroon,color.white)
+
+
+// =====================================================
+// ================= SUPPORT
+// =====================================================
+if not na(pl)
+
+    pivotBar = bar_index[rightBars]
+    lastSupport := pl
+    supBreakTriggered := false
+
+    if not na(supCreatedLine)
+        line.set_x2(supCreatedLine,pivotBar)
+        line.set_extend(supCreatedLine,extend.none)
+
+    if showSupCreatedLine
+        supCreatedLine := line.new(pivotBar,pl,bar_index,pl,width=2,color=color.green,extend=extend.right)
+
+    if showSupConfirmLine
+        supConfirmLine := line.new(bar_index,pl,bar_index+leftBars,pl,width=2,color=color.teal,extend=extend.none)
+
+    pivotId="SUP_"+str.tostring(time)
+
+    drawLabel(showSupCreatedLabel,pivotBar,pl,"S CREATED\nPrice: "+str.tostring(pl),label.style_label_up,color.green,color.white)
+    drawLabel(showSupConfirmLabel,bar_index,close,"S CONFIRMED\nConfirm: "+str.tostring(close),label.style_label_up,color.teal,color.white)
+
+
+// =====================================================
+// ================= RESISTANCE BREAKOUT ALERT
+// =====================================================
+if not na(lastResistance) and not resBreakTriggered
+
+    fullBreakout =
+         open  > lastResistance and
+         close > lastResistance and
+         low   > lastResistance and
+         open[1]  > lastResistance and
+         close[1] > lastResistance and
+         low[1]   > lastResistance
+
+    if fullBreakout
+
+        pivotId="RES_BREAK_"+str.tostring(time)
+
+        label.new(bar_index,close,"🚀 RES BREAKOUT\n"+str.tostring(close),style=label.style_label_up,color=color.lime,textcolor=color.black,size=size.small)
+
+        sendEvent("RESISTANCE_BREAKOUT_BUY",lastResistance,close,pivotId)
+
+        resBreakTriggered := true
+
+
+// =====================================================
+// ================= SUPPORT BREAKDOWN ALERT
+// =====================================================
+if not na(lastSupport) and not supBreakTriggered
+
+    fullBreakdown =
+         open  < lastSupport and
+         close < lastSupport and
+         high  < lastSupport and
+         open[1]  < lastSupport and
+         close[1] < lastSupport and
+         high[1]  < lastSupport
+
+    if fullBreakdown
+
+        pivotId="SUP_BREAK_"+str.tostring(time)
+
+        label.new(bar_index,close,"🔻 SUP BREAKDOWN\n"+str.tostring(close),style=label.style_label_down,color=color.red,textcolor=color.white,size=size.small)
+
+        sendEvent("SUPPORT_BREAKDOWN_SELL",lastSupport,close,pivotId)
+
+        supBreakTriggered := true
