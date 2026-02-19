@@ -1,5 +1,5 @@
 //@version=5
-indicator("Master - S/R (Latest Event Priority)", overlay=true, max_lines_count=200, max_labels_count=500)
+indicator("S (Or) R Breakout", overlay=true, max_lines_count=200, max_labels_count=500)
 
 // ==========================
 // CONFIG
@@ -16,21 +16,21 @@ showSupCreatedLine  = input.bool(true,"Show Support Created Line")
 showSupConfirmLine  = input.bool(true,"Show Support Confirm Line")
 
 // ==========================
-// IST TIME
+// IST TIME + DATE (24H)
 // ==========================
 get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
+get_ist_date(_time)=>str.format("{0,date,yyyy-MM-dd}",_time+19800000)
 
 // ==========================
 // SYMBOL
 // ==========================
 symbol_raw  = syminfo.tickerid
 symbol_id   = syminfo.ticker
-chart_link  = "https://www.tradingview.com/chart/?symbol=NSE:"+symbol_id
 
 // ==========================
-// UNIVERSAL ALERT FUNCTION
+// UNIVERSAL ALERT FUNCTION (ONE LINE)
 // ==========================
-sendEvent(_type,_pivotPrice,_confirmPrice,_pivotId)=>alert("{\"num\":\"1\",\"type\":\""+_type+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol_raw\":\""+symbol_raw+"\",\"pivot_price\":"+str.tostring(_pivotPrice)+",\"confirm_price\":"+str.tostring(_confirmPrice)+",\"pivot_id\":\""+_pivotId+"\",\"confirm_time\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+sendEvent(_action,_price)=>alert("{\"symbol\":\""+symbol_id+"\",\"action\":"+str.tostring(_action)+",\"price\":"+str.tostring(_price)+",\"time_ist\":\""+get_ist_time(time)+"\",\"date\":\""+get_ist_date(time)+"\",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
 
 // ==========================
 // LABEL FUNCTION
@@ -101,7 +101,7 @@ if newSupportThisBar
     drawLabel(showSupCreatedLabel,pivotBar,pl,"S CREATED\nPrice: "+str.tostring(pl),label.style_label_up,color.green,color.white,time[rightBars])
 
 // =====================================================
-// RESISTANCE BREAKOUT (2 GREEN CANDLES REQUIRED)
+// RESISTANCE BREAKOUT → action = 1
 // =====================================================
 if not na(lastResistance) and not resBreakTriggered and not newResistanceThisBar
 
@@ -113,21 +113,17 @@ if not na(lastResistance) and not resBreakTriggered and not newResistanceThisBar
          close[1] > lastResistance and
          low[1]   > lastResistance
 
-    twoGreen =
-         close > open and
-         close[1] > open[1]
+    greenCandle = close > open
 
-    if fullBreakout and twoGreen
-        pivotId="RES_BREAK_"+str.tostring(time)
+    if fullBreakout and greenCandle
+        label.new(bar_index,close,"🚀 R BREAK\n"+str.tostring(close)+"\nTime: "+get_ist_time(time),style=label.style_label_up,color=color.lime,textcolor=color.black,size=size.small)
 
-        label.new(bar_index,close,"🚀 RES BREAKOUT\n"+str.tostring(close)+"\nTime: "+get_ist_time(time),style=label.style_label_up,color=color.lime,textcolor=color.black,size=size.small)
-
-        sendEvent("RESISTANCE_BREAKOUT_BUY",lastResistance,close,pivotId)
+        sendEvent(1,close)
 
         resBreakTriggered := true
 
 // =====================================================
-// SUPPORT BREAKDOWN (2 RED CANDLES REQUIRED)
+// SUPPORT BREAKDOWN → action = 0
 // =====================================================
 if not na(lastSupport) and not supBreakTriggered and not newSupportThisBar
 
@@ -139,15 +135,11 @@ if not na(lastSupport) and not supBreakTriggered and not newSupportThisBar
          close[1] < lastSupport and
          high[1]  < lastSupport
 
-    twoRed =
-         close < open and
-         close[1] < open[1]
+    redCandle = close < open
 
-    if fullBreakdown and twoRed
-        pivotId="SUP_BREAK_"+str.tostring(time)
+    if fullBreakdown and redCandle
+        label.new(bar_index,close,"🔻 S FALL\n"+str.tostring(close)+"\nTime: "+get_ist_time(time),style=label.style_label_down,color=color.red,textcolor=color.white,size=size.small)
 
-        label.new(bar_index,close,"🔻 SUP FALLOUT\n"+str.tostring(close)+"\nTime: "+get_ist_time(time),style=label.style_label_down,color=color.red,textcolor=color.white,size=size.small)
-
-        sendEvent("SUPPORT_FALLOUT_SELL",lastSupport,close,pivotId)
+        sendEvent(0,close)
 
         supBreakTriggered := true
