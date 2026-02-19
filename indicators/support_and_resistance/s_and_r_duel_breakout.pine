@@ -9,9 +9,12 @@ rightBars = input.int(21,"Right Strength")
 confirmationBars = input.int(5,"Confirmation Window (Bars)")
 
 // ==========================
-// OPPOSITE SYMBOL (PE)
+// AUTO OPPOSITE SYMBOL (C ↔ P)
 // ==========================
-oppositeSymbol = input.symbol("NIFTY260224P25500","Opposite Strike (PE)")
+string chartTicker = syminfo.ticker
+bool isCE = str.contains(chartTicker, "C")
+bool isPE = str.contains(chartTicker, "P")
+string oppositeSymbol = isCE ? str.replace(chartTicker, "C", "P") : isPE ? str.replace(chartTicker, "P", "C") : chartTicker
 
 // ==========================
 // TIME
@@ -24,11 +27,12 @@ get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
 symbol_raw = syminfo.tickerid
 symbol_id  = syminfo.ticker
 chart_link = "https://www.tradingview.com/chart/?symbol="+symbol_raw
+opposite_chart_link = "https://www.tradingview.com/chart/?symbol="+oppositeSymbol
 
 // ==========================
-// UNIVERSAL ALERT FUNCTION (ONE LINE)
+// UNIVERSAL ALERT FUNCTION (ONE LINE CLEAN JSON)
 // ==========================
-sendEvent(_type,_pivotPrice,_confirmPrice,_pivotId)=>alert("{\"num\":\"1\",\"type\":\""+_type+"\",\"ticker\":\""+syminfo.ticker+"\",\"symbol_raw\":\""+symbol_raw+"\",\"pivot_price\":"+str.tostring(_pivotPrice)+",\"confirm_price\":"+str.tostring(_confirmPrice)+",\"pivot_id\":\""+_pivotId+"\",\"confirm_time\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+sendEvent(_type,_pivotPrice,_confirmPrice,_pivotId,_ceStatus,_peStatus)=>alert("{\"type\":\""+_type+"\",\"current_symbol\":\""+syminfo.ticker+"\",\"opposite_symbol\":\""+oppositeSymbol+"\",\"current_chart\":\""+chart_link+"\",\"opposite_chart\":\""+opposite_chart_link+"\",\"ce_status\":\""+_ceStatus+"\",\"pe_status\":\""+_peStatus+"\",\"pivot_price\":"+str.tostring(_pivotPrice)+",\"confirm_price\":"+str.tostring(_confirmPrice)+",\"pivot_id\":\""+_pivotId+"\",\"confirm_time\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
 
 // ==========================
 // CE PIVOTS
@@ -53,9 +57,7 @@ if not na(ce_pl)
     ce_lastSupport := ce_pl
     ce_supBreak := false
 
-// ==========================
 // CE RESISTANCE BREAKOUT
-// ==========================
 if not na(ce_lastResistance) and not ce_resBreak and na(ce_ph)
     ce_fullBreakout = open > ce_lastResistance and close > ce_lastResistance and low > ce_lastResistance and open[1] > ce_lastResistance and close[1] > ce_lastResistance and low[1] > ce_lastResistance
     if ce_fullBreakout and close > open
@@ -63,9 +65,7 @@ if not na(ce_lastResistance) and not ce_resBreak and na(ce_ph)
         ceBreakPrice_up := close
         ce_resBreak := true
 
-// ==========================
 // CE SUPPORT BREAKDOWN
-// ==========================
 if not na(ce_lastSupport) and not ce_supBreak and na(ce_pl)
     ce_fullBreakdown = open < ce_lastSupport and close < ce_lastSupport and high < ce_lastSupport and open[1] < ce_lastSupport and close[1] < ce_lastSupport and high[1] < ce_lastSupport
     if ce_fullBreakdown and close < open
@@ -73,9 +73,9 @@ if not na(ce_lastSupport) and not ce_supBreak and na(ce_pl)
         ceBreakPrice_down := close
         ce_supBreak := true
 
-// =====================================================
+// ==========================
 // PE DATA
-// =====================================================
+// ==========================
 pe_open  = request.security(oppositeSymbol,timeframe.period,open)
 pe_close = request.security(oppositeSymbol,timeframe.period,close)
 pe_high  = request.security(oppositeSymbol,timeframe.period,high)
@@ -96,40 +96,38 @@ if not na(pe_pl)
     pe_lastSupport := pe_pl
     pe_supBreak := false
 
-// ==========================
 // PE RESISTANCE BREAKOUT
-// ==========================
 if not na(pe_lastResistance) and not pe_resBreak and na(pe_ph)
     pe_fullBreakout = pe_open > pe_lastResistance and pe_close > pe_lastResistance and pe_low > pe_lastResistance and pe_open[1] > pe_lastResistance and pe_close[1] > pe_lastResistance and pe_low[1] > pe_lastResistance
     if pe_fullBreakout and pe_close > pe_open
         pe_resBreak := true
 
-// ==========================
 // PE SUPPORT BREAKDOWN
-// ==========================
 if not na(pe_lastSupport) and not pe_supBreak and na(pe_pl)
     pe_fullBreakdown = pe_open < pe_lastSupport and pe_close < pe_lastSupport and pe_high < pe_lastSupport and pe_open[1] < pe_lastSupport and pe_close[1] < pe_lastSupport and pe_high[1] < pe_lastSupport
     if pe_fullBreakdown and pe_close < pe_open
         pe_supBreak := true
 
 // =====================================================
-// CASE 1: CE SUPPORT FALL → PE RES BREAK → BUY PE
+// CASE 1: CE FALL → PE RISE → BUY PE
 // =====================================================
 confirm_pe_buy = not na(ceBreakBar_down) and pe_resBreak and (bar_index - ceBreakBar_down <= confirmationBars)
 
 if confirm_pe_buy
-    label.new(bar_index,close,"PE BUY\nCE Breakdown: "+str.tostring(ceBreakPrice_down)+"\nPE Break: "+str.tostring(pe_close)+"\nTime: "+get_ist_time(time),style=label.style_label_up,color=color.blue,textcolor=color.white,size=size.small)
-    sendEvent("CONFIRMED_PE_BUY",ceBreakPrice_down,pe_close,"CE_TO_PE_BUY")
+    labelText = "PE BUY ✅\nCE FALLING ↓\nPE RISING ↑\n\nCE Breakdown: "+str.tostring(ceBreakPrice_down)+"\nPE Break: "+str.tostring(pe_close)+"\nTime: "+get_ist_time(time)
+    label.new(bar_index,close,labelText,style=label.style_label_up,color=color.blue,textcolor=color.white,size=size.small)
+    sendEvent("CONFIRMED_PE_BUY",ceBreakPrice_down,pe_close,"CE_TO_PE_BUY","FALLING","RISING")
     ceBreakBar_down := na
     pe_resBreak := false
 
 // =====================================================
-// CASE 2: CE RES BREAK → PE SUPPORT FALL → BUY CE
+// CASE 2: CE RISE → PE FALL → BUY CE
 // =====================================================
 confirm_ce_buy = not na(ceBreakBar_up) and pe_supBreak and (bar_index - ceBreakBar_up <= confirmationBars)
 
 if confirm_ce_buy
-    label.new(bar_index,close,"CE BUY\nCE Breakout: "+str.tostring(ceBreakPrice_up)+"\nPE Breakdown: "+str.tostring(pe_close)+"\nTime: "+get_ist_time(time),style=label.style_label_up,color=color.green,textcolor=color.white,size=size.small)
-    sendEvent("CONFIRMED_CE_BUY",ceBreakPrice_up,pe_close,"PE_TO_CE_BUY")
+    labelText = "CE BUY ✅\nCE RISING ↑\nPE FALLING ↓\n\nCE Breakout: "+str.tostring(ceBreakPrice_up)+"\nPE Breakdown: "+str.tostring(pe_close)+"\nTime: "+get_ist_time(time)
+    label.new(bar_index,close,labelText,style=label.style_label_up,color=color.green,textcolor=color.white,size=size.small)
+    sendEvent("CONFIRMED_CE_BUY",ceBreakPrice_up,pe_close,"PE_TO_CE_BUY","RISING","FALLING")
     ceBreakBar_up := na
     pe_supBreak := false
