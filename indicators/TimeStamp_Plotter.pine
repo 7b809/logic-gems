@@ -1,44 +1,40 @@
 //@version=5
-indicator("Custom Date-Time Marker", overlay=true, max_labels_count=50)
+indicator("Custom Date-Time Label + Universal Alert", overlay=true)
 
-// ==============================
-// INPUTS
-// ==============================
+// ==========================
+// DATE-TIME INPUT
+// ==========================
+// Use literal numbers directly inside timestamp to satisfy 'const' requirements
+targetTime = input.time(defval = timestamp("2026-02-12T14:30:00+05:30"), title = "Select Date & Time")
 
-// Default to today date
-inputYear  = input.int(year(time),  "Year")
-inputMonth = input.int(month(time), "Month")
-inputDay   = input.int(dayofmonth(time), "Day")
+// ==========================
+// HELPER FUNCTION (IST FORMAT)
+// ==========================
+get_ist_time(_t) => str.format("{0,date,dd-MM-yyyy HH:mm}", _t)
 
-inputHour   = input.int(11, "Hour (24h format)")
-inputMinute = input.int(5,  "Minute")
+// ==========================
+// SYMBOL HELPERS
+// ==========================
+symbol_raw = syminfo.ticker
+chart_link = "chart"
 
-showLabels = input.bool(true, "Show Label")
+// ==========================
+// UNIVERSAL ALERT FUNCTION
+// ==========================
+sendEvent(_type, _pivotPrice, _confirmPrice, _pivotId) => 
+    alert_msg = "{\"num\":\"1\",\"type\":\"" + _type + "\",\"ticker\":\"" + syminfo.ticker + "\",\"symbol_raw\":\"" + symbol_raw + "\",\"pivot_price\":" + str.tostring(_pivotPrice) + ",\"confirm_price\":" + str.tostring(_confirmPrice) + ",\"pivot_id\":\"" + _pivotId + "\",\"confirm_time\":\"" + get_ist_time(time) + "\",\"timestamp\":" + str.tostring(time) + ",\"chart\":\"" + chart_link + "\"}"
+    alert(alert_msg, alert.freq_once_per_bar_close)
 
-// ==============================
-// BUILD TARGET TIMESTAMP
-// ==============================
-targetTimestamp = timestamp("Asia/Kolkata",
-     inputYear, inputMonth, inputDay,
-     inputHour, inputMinute)
+// ==========================
+// TRIGGER CONDITION
+// ==========================
+// Checks if the current bar's time has reached or passed the target
+trigger = (time >= targetTime and time[1] < targetTime)
 
-// ==============================
-// DETECT MATCHING BAR
-// ==============================
-
-isTargetBar = (time >= targetTimestamp and time[1] < targetTimestamp)
-
-// ==============================
-// LABEL
-// ==============================
-
-if isTargetBar and showLabels
-    label.new(bar_index, close,
-        "⏰ Time Marker\n" +
-        "Price: " + str.tostring(close) +
-        "\nTimestamp: " + str.tostring(time) +
-        "\nTime: " + str.format("{0,time,HH:mm}", time),
-        style=label.style_label_up,
-        color=color.blue,
-        textcolor=color.white,
-        size=size.small)
+// ==========================
+// EXECUTION
+// ==========================
+if trigger
+    lblText = "📌 Custom Time Hit\nPrice: " + str.tostring(close) + "\nTime: " + get_ist_time(time) + "\nTimestamp: " + str.tostring(time)
+    label.new(bar_index, high, lblText, style=label.style_label_down, color=color.yellow, textcolor=color.black)
+    sendEvent("CUSTOM_TIME", close, close, "DT_" + str.tostring(targetTime))
