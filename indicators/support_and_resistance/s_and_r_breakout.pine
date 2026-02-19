@@ -16,6 +16,12 @@ showSupCreatedLine  = input.bool(true,"Show Support Created Line")
 showSupConfirmLine  = input.bool(true,"Show Support Confirm Line")
 
 // ==========================
+// TEST ALERTS
+// ==========================
+testResistanceAlert = input.bool(false,"🧪 Test Resistance Break Alert")
+testSupportAlert    = input.bool(false,"🧪 Test Support Break Alert")
+
+// ==========================
 // IST TIME + DATE (24H)
 // ==========================
 get_ist_time(_time)=>str.format("{0,time,HH:mm:ss}",_time+19800000)
@@ -30,7 +36,7 @@ symbol_id   = syminfo.ticker
 // ==========================
 // UNIVERSAL ALERT FUNCTION (ONE LINE)
 // ==========================
-sendEvent(_action,_price)=>alert("{\"symbol\":\""+symbol_id+"\",\"action\":"+str.tostring(_action)+",\"price\":"+str.tostring(_price)+",\"time_ist\":\""+get_ist_time(time)+"\",\"date\":\""+get_ist_date(time)+"\",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
+sendEvent(_action,_price)=>alert("{\"symbol\":\""+symbol_id+"\",\"action\":"+str.tostring(_action)+",\"price\":"+str.tostring(_price)+",\"num\":3,\"time_ist\":\""+get_ist_time(time)+"\",\"date\":\""+get_ist_date(time)+"\",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
 
 // ==========================
 // LABEL FUNCTION
@@ -56,6 +62,9 @@ var float lastSupport    = na
 
 var bool resBreakTriggered = false
 var bool supBreakTriggered = false
+
+var bool testResTriggered = false
+var bool testSupTriggered = false
 
 newResistanceThisBar = not na(ph)
 newSupportThisBar    = not na(pl)
@@ -117,9 +126,7 @@ if not na(lastResistance) and not resBreakTriggered and not newResistanceThisBar
 
     if fullBreakout and greenCandle
         label.new(bar_index,close,"🚀 R BREAK\n"+str.tostring(close)+"\nTime: "+get_ist_time(time),style=label.style_label_up,color=color.lime,textcolor=color.black,size=size.small)
-
         sendEvent(1,close)
-
         resBreakTriggered := true
 
 // =====================================================
@@ -139,7 +146,22 @@ if not na(lastSupport) and not supBreakTriggered and not newSupportThisBar
 
     if fullBreakdown and redCandle
         label.new(bar_index,close,"🔻 S FALL\n"+str.tostring(close)+"\nTime: "+get_ist_time(time),style=label.style_label_down,color=color.red,textcolor=color.white,size=size.small)
-
         sendEvent(0,close)
-
         supBreakTriggered := true
+
+// =====================================================
+// MANUAL TEST ALERTS (NO SPAM)
+// =====================================================
+if testResistanceAlert and not testResTriggered
+    sendEvent(1,close)
+    testResTriggered := true
+
+if not testResistanceAlert
+    testResTriggered := false
+
+if testSupportAlert and not testSupTriggered
+    sendEvent(0,close)
+    testSupTriggered := true
+
+if not testSupportAlert
+    testSupTriggered := false
