@@ -1,0 +1,26 @@
+give full modifeid cdoe of that also note to give funciton in one line like // ==========================
+// UNIVERSAL ALERT FUNCTION
+// ==========================
+sendEvent(_type,_price,_extraPrice,_pivotId)=> alert("{\"type\":\""+_type+"\",\"price\":"+str.tostring(_price)+",\"extra_price\":"+str.tostring(_extraPrice)+",\"pivot_id\":\""+_pivotId+"\",\"time_ist\":\""+get_ist_time(time)+"\",\"timestamp\":"+str.tostring(time)+",\"ticker\":\""+syminfo.ticker+"\",\"symbol\":\""+symbol_id+"\",\"chart\":\""+chart_link+"\"}",alert.freq_once_per_bar_close)
+
+// ========================== not like chart_link = "https://www.tradingview.com/chart/?symbol=" + symbol_encoded
+
+// ==========================
+// UNIVERSAL ALERT FUNCTION
+// ==========================
+sendEvent(_type,_pivotPrice,_confirmPrice,_pivotId)=>
+    alert(
+        "{"
+        + "\"num\":\"1\","
+        + "\"type\":\""+_type+"\","
+        + "\"ticker\":\""+syminfo.ticker+"\","
+        + "\"symbol_raw\":\""+symbol_raw+"\","
+        + "\"pivot_price\":"+str.tostring(_pivotPrice)+","
+        + "\"confirm_price\":"+str.tostring(_confirmPrice)+","
+        + "\"pivot_id\":\""+_pivotId+"\","
+        + "\"confirm_time\":\""+get_ist_time(time)+"\","
+        + "\"timestamp\":"+str.tostring(time)+","
+        + "\"chart\":\""+chart_link+"\""
+        + "}",
+        alert.freq_once_per_bar_close
+    ) where next line with spaces and everythign we do not want
