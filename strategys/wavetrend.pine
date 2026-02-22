@@ -1,0 +1,64 @@
+//@version=5
+strategy("WaveTrend Cross Strategy [LazyBear Modified]", overlay=false, pyramiding=0, initial_capital=100000)
+
+// ==========================
+// INPUTS
+// ==========================
+n1 = input.int(10, "Channel Length")
+n2 = input.int(21, "Average Length")
+
+obLevel1 = input.int(60, "Over Bought Level 1")
+obLevel2 = input.int(53, "Over Bought Level 2")
+osLevel1 = input.int(-60, "Over Sold Level 1")
+osLevel2 = input.int(-53, "Over Sold Level 2")
+
+// ==========================
+// WAVETREND CALCULATION
+// ==========================
+ap  = hlc3
+esa = ta.ema(ap, n1)
+d   = ta.ema(math.abs(ap - esa), n1)
+ci  = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+// ==========================
+// CONDITIONS
+// ==========================
+longCondition  = ta.crossover(wt1, wt2) and wt1 < osLevel2
+shortCondition = ta.crossunder(wt1, wt2) and wt1 > obLevel2
+
+// ==========================
+// STRATEGY ENTRIES
+// ==========================
+if longCondition
+    strategy.entry("BUY", strategy.long)
+
+if shortCondition
+    strategy.entry("SELL", strategy.short)
+
+// Close on opposite signal
+if ta.crossunder(wt1, wt2)
+    strategy.close("BUY")
+
+if ta.crossover(wt1, wt2)
+    strategy.close("SELL")
+
+// ==========================
+// PLOTS
+// ==========================
+plot(0, color=color.gray)
+plot(obLevel1, color=color.red)
+plot(obLevel2, color=color.red)
+plot(osLevel1, color=color.green)
+plot(osLevel2, color=color.green)
+
+plot(wt1, color=color.green, title="WT1")
+plot(wt2, color=color.red, title="WT2")
+plot(wt1 - wt2, color=color.blue, style=plot.style_area, transp=80)
+
+plot(ta.cross(wt1, wt2) ? wt2 : na, 
+     color = (wt2 - wt1 > 0 ? color.red : color.lime), 
+     style = plot.style_circles, linewidth = 2) 
