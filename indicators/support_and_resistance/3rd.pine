@@ -1,0 +1,142 @@
+//@version=5
+indicator("Support and Resistance (High Volume Boxes) [ChartPrime]", shorttitle="SR Breaks and Retests [ChartPrime]", overlay=true, max_boxes_count=50)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// USER INPUTS
+// ---------------------------------------------------------------------------------------------------------------------
+lookbackPeriod = input.int(20, "Lookback Period", minval=1, group="Settings")
+vol_len        = input.int(2, "Delta Volume Filter Length", group="Settings")
+box_withd      = input.float(1, "Adjust Box Width", maxval=1000, minval=0, step=0.1)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// DATE & TIME FORMAT
+// ---------------------------------------------------------------------------------------------------------------------
+dateStr = str.format("{0,date,yyyy-MM-dd}", time)
+timeStr = str.format("{0,time,HH:mm}", time)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// UNIVERSAL ALERT FUNCTION (ONE LINE ONLY)
+// ---------------------------------------------------------------------------------------------------------------------
+sendEvent(_direction,_type,_typeCount,_price)=>alert("{\"symbol\":\""+syminfo.ticker+"\",\"direction\":\""+_direction+"\",\"type\":\""+_type+"\",\"type_count\":\""+_typeCount+"\",\"strike\":\"na\",\"main_index\":\"na\",\"date\":\""+dateStr+"\",\"time\":\""+timeStr+"\",\"price\":"+str.tostring(_price)+",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// DELTA VOLUME
+// ---------------------------------------------------------------------------------------------------------------------
+upAndDownVolume() =>
+    posVol = 0.0
+    negVol = 0.0
+    var isBuyVolume = true
+    switch
+        close > open => isBuyVolume := true
+        close < open => isBuyVolume := false
+    if isBuyVolume
+        posVol += volume
+    else
+        negVol -= volume
+    posVol + negVol
+
+Vol    = upAndDownVolume()
+vol_hi = ta.highest(Vol/2.5, vol_len)
+vol_lo = ta.lowest(Vol/2.5, vol_len)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PERSISTENT VARIABLES
+// ---------------------------------------------------------------------------------------------------------------------
+var float supportLevel      = na
+var float supportLevel_1    = na
+var float resistanceLevel   = na
+var float resistanceLevel_1 = na
+var box   sup               = na
+var box   res               = na
+var color sup_color         = na
+var color res_color         = na
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PIVOTS
+// ---------------------------------------------------------------------------------------------------------------------
+pivotHigh = ta.pivothigh(close, lookbackPeriod, lookbackPeriod)
+pivotLow  = ta.pivotlow(close, lookbackPeriod, lookbackPeriod)
+
+atr   = ta.atr(200)
+withd = atr * box_withd
+
+// ---------------------------------------------------------------------------------------------------------------------
+// CREATE SUPPORT BOX
+// ---------------------------------------------------------------------------------------------------------------------
+if (not na(pivotLow)) and Vol > vol_hi
+    supportLevel   := pivotLow
+    supportLevel_1 := supportLevel - withd
+
+    topLeft     = chart.point.from_index(bar_index - lookbackPeriod, supportLevel)
+    bottomRight = chart.point.from_index(bar_index, supportLevel_1)
+
+    sup_color := color.from_gradient(Vol, 0, ta.highest(Vol, 25), color(na), color.new(color.green, 30))
+
+    sup := box.new(top_left=topLeft, bottom_right=bottomRight, border_color=color.green, border_width=1, bgcolor=sup_color)
+    
+// ---------------------------------------------------------------------------------------------------------------------
+// CREATE RESISTANCE BOX
+// ---------------------------------------------------------------------------------------------------------------------
+if (not na(pivotHigh)) and Vol < vol_lo
+    resistanceLevel   := pivotHigh
+    resistanceLevel_1 := resistanceLevel + withd
+
+    topLeft     = chart.point.from_index(bar_index - lookbackPeriod, resistanceLevel)
+    bottomRight = chart.point.from_index(bar_index, resistanceLevel_1)
+
+    res_color := color.from_gradient(Vol, ta.lowest(Vol, 25), 0, color.new(color.red, 30), color(na))
+
+    res := box.new(top_left=topLeft, bottom_right=bottomRight, border_color=color.red, border_width=1, bgcolor=res_color)
+
+// Extend boxes
+if not na(sup)
+    sup.set_right(bar_index + 1)
+
+if not na(res)
+    res.set_right(bar_index + 1)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// BREAKOUT & HOLD CONDITIONS
+// ---------------------------------------------------------------------------------------------------------------------
+brekout_res = not na(resistanceLevel_1) and ta.crossover(low, resistanceLevel_1)
+brekout_sup = not na(supportLevel_1) and ta.crossunder(high, supportLevel_1)
+
+res_holds   = not na(resistanceLevel) and ta.crossunder(high, resistanceLevel)
+sup_holds   = not na(supportLevel) and ta.crossover(low, supportLevel)
+
+// Change box styling on break
+if brekout_sup and not na(sup)
+    sup.set_bgcolor(color.new(color.red, 80))
+    sup.set_border_color(color.red)
+    sup.set_border_style(line.style_dashed)
+
+if brekout_res and not na(res)
+    res.set_bgcolor(color.new(color.green, 80))
+    res.set_border_color(color.green)
+    res.set_border_style(line.style_dashed)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// VISUAL MARKERS
+// ---------------------------------------------------------------------------------------------------------------------
+plotchar(res_holds, "Resistance Holds", "◆", color=color.red, size=size.tiny, location=location.abovebar)
+plotchar(sup_holds, "Support Holds", "◆", color=color.green, size=size.tiny, location=location.belowbar)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// ALERT TRIGGERS
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Break Resistance → Bullish
+if brekout_res
+    sendEvent("Long","bullish","bull1",close)
+
+// Break Support → Bearish
+if brekout_sup
+    sendEvent("Short","bearish","bear1",close)
+
+// Resistance Holds → Rejection
+if res_holds
+    sendEvent("Short","rejection","rej1",close)
+
+// Support Holds → Bounce
+if sup_holds
+    sendEvent("Long","bounce","bounce1",close)

@@ -1,0 +1,92 @@
+//@version=5
+indicator("WaveTrend with Cross Alerts + Strike + Index", shorttitle="WT_CROSS_LB_ALERT", overlay=false)
+
+// ==========================
+// INPUTS
+// ==========================
+n1 = input.int(10, "Channel Length")
+n2 = input.int(21, "Average Length")
+obLevel1 = input.int(60, "Over Bought Level 1")
+obLevel2 = input.int(53, "Over Bought Level 2")
+osLevel1 = input.int(-60, "Over Sold Level 1")
+osLevel2 = input.int(-53, "Over Sold Level 2")
+
+// ==========================
+// WAVETREND CALCULATION
+// ==========================
+ap = hlc3
+esa = ta.ema(ap, n1)
+d = ta.ema(math.abs(ap - esa), n1)
+ci = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+// ==========================
+// PLOTS
+// ==========================
+plot(0, color=color.gray)
+plot(obLevel1, color=color.red)
+plot(osLevel1, color=color.green)
+plot(obLevel2, color=color.red)
+plot(osLevel2, color=color.green)
+
+plot(wt1, color=color.green)
+plot(wt2, color=color.red)
+plot(wt1 - wt2, color=color.blue, style=plot.style_area, transp=80)
+
+plot(ta.cross(wt1, wt2) ? wt2 : na, color=color.black, style=plot.style_circles, linewidth=3)
+plot(ta.cross(wt1, wt2) ? wt2 : na, color=(wt2 - wt1 > 0 ? color.red : color.lime), style=plot.style_circles, linewidth=2)
+
+barcolor(ta.cross(wt1, wt2) ? (wt2 - wt1 > 0 ? color.aqua : color.yellow) : na)
+
+// ==========================
+// DATE & TIME FORMAT
+// ==========================
+getDate() => str.tostring(year) + "-" + str.tostring(month, "00") + "-" + str.tostring(dayofmonth, "00")
+getTime24() => str.tostring(hour, "00") + ":" + str.tostring(minute, "00")
+
+// ==========================
+// STRIKE + INDEX DETECTION
+// ==========================
+symbolName = syminfo.ticker
+
+isCall  = str.endswith(symbolName, "C")
+isPut   = str.endswith(symbolName, "P")
+
+strikeType = isCall ? "ce" : isPut ? "pe" : "na"
+
+isNifty   = str.contains(str.lower(symbolName), "nifty")
+isSensex  = str.contains(str.lower(symbolName), "sensex")
+
+mainIndex = isNifty ? "nifty" : isSensex ? "sensex" : "na"
+
+// ==========================
+// COUNTERS
+// ==========================
+var int bullCount = 0
+var int bearCount = 0
+
+bullCross = ta.crossover(wt1, wt2)
+bearCross = ta.crossunder(wt1, wt2)
+
+if bullCross
+    bullCount += 1
+
+if bearCross
+    bearCount += 1
+
+// ==========================
+// UNIVERSAL ALERT FUNCTION (ONE LINE)
+// ==========================
+sendEvent(_direction,_type,_price,_typeCount)=>alert("{\"symbol\":\""+syminfo.ticker+"\",\"direction\":\""+_direction+"\",\"type\":\""+_type+"\",\"type_count\":\""+_typeCount+"\",\"strike\":\""+strikeType+"\",\"main_index\":\""+mainIndex+"\",\"date\":\""+getDate()+"\",\"time\":\""+getTime24()+"\",\"price\":"+str.tostring(_price)+",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
+
+// ==========================
+// ALERT TRIGGERS
+// ==========================
+if bullCross
+    sendEvent("Long","bullish",close,"bull"+str.tostring(bullCount))
+
+if bearCross
+    sendEvent("Short","bearish",close,"bear"+str.tostring(bearCount))
