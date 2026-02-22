@@ -3,15 +3,37 @@
     // ================================
     // 🔹 GET SYMBOL NAME
     // ================================
-    const symbolButton = document.querySelector('button.title-l31H9iuA');
+    const symbolButton = document.querySelector('button[aria-label="Change symbol"]');
 
     if (!symbolButton) {
         console.error("Symbol button not found");
         return;
     }
 
-    const symbolName = symbolButton.innerText.trim();
+    const symbolName = symbolButton.innerText.trim().toUpperCase();
     console.log("📌 Symbol Detected:", symbolName);
+
+    // ================================
+    // 🔹 DETERMINE FILE PREFIX
+    // ================================
+    let filePrefix = "other";
+
+    if (symbolName.includes("CALL") || symbolName.includes("CE")) {
+        filePrefix = "ce";
+    } 
+    else if (symbolName.includes("PUT") || symbolName.includes("PE")) {
+        filePrefix = "pe";
+    } 
+    else if (
+        symbolName.includes("NIFTY") ||
+        symbolName.includes("SENSEX") ||
+        symbolName.includes("BANKNIFTY") ||
+        symbolName.includes("FINNIFTY")
+    ) {
+        filePrefix = "index";
+    }
+
+    console.log("📂 File Type:", filePrefix);
 
     // ================================
     // 🔹 SCROLL CONTAINER
@@ -39,7 +61,7 @@
                 const cells = row.querySelectorAll('.ka-cell');
 
                 collectedTrades.set(tradeNo, {
-                    symbol: symbolName,   // ✅ ADDED HERE
+                    symbol: symbolName,
                     tradeNo,
                     direction: row.querySelector('.long-VdWadcSQ') ? "Long" :
                                row.querySelector('.short-VdWadcSQ') ? "Short" : "",
@@ -62,11 +84,8 @@
     console.log("🚀 Starting scroll until Trade #1...");
 
     while (!reachedTradeOne) {
-
         extractRows();
-
         scrollContainer.scrollTop += 800;
-
         await new Promise(r => setTimeout(r, 400));
     }
 
@@ -76,6 +95,8 @@
     const result = Array.from(collectedTrades.values())
         .sort((a, b) => Number(a.tradeNo) - Number(b.tradeNo));
 
+    console.log(result);
+
     // ================================
     // 🔹 DOWNLOAD JSON
     // ================================
@@ -83,7 +104,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = symbolName.replace(/\s+/g, "_") + '_all_trades.json';
+    a.download = `${filePrefix}_all_trades.json`;
     a.click();
 
 })();
