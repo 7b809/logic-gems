@@ -1,0 +1,110 @@
+//@version=5
+indicator(title="WaveTrend with + Alerts", shorttitle="WaveTrend + alerts Adv", overlay=false)
+
+// === INPUTS (UNCHANGED) ===
+n1 = input.int(10, "Channel Length")
+n2 = input.int(21, "Average Length")
+obLevel1 = input.int(60, "Over Bought Level 1")
+obLevel2 = input.int(53, "Over Bought Level 2")
+osLevel1 = input.int(-60, "Over Sold Level 1")
+osLevel2 = input.int(-53, "Over Sold Level 2")
+
+// === CALCULATIONS (UNCHANGED) ===
+ap = hlc3
+esa = ta.ema(ap, n1)
+d = ta.ema(math.abs(ap - esa), n1)
+ci = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+// === PLOTS (UNCHANGED) ===
+plot(0, color=color.gray)
+plot(obLevel1, color=color.red)
+plot(osLevel1, color=color.green)
+plot(obLevel2, color=color.red)
+plot(osLevel2, color=color.green)
+
+plot(wt1, color=color.green)
+plot(wt2, color=color.red)
+plot(wt1 - wt2, color=color.blue, style=plot.style_area, transp=80)
+
+plot(ta.cross(wt1, wt2) ? wt2 : na, color=color.black, style=plot.style_circles, linewidth=3)
+plot(ta.cross(wt1, wt2) ? wt2 : na,
+     color=(wt2 - wt1 > 0 ? color.red : color.lime),
+     style=plot.style_circles,
+     linewidth=2)
+
+barcolor(ta.cross(wt1, wt2) ? (wt2 - wt1 > 0 ? color.aqua : color.yellow) : na)
+
+// === SIGNAL CONDITIONS ===
+bullish = ta.crossover(wt1, wt2)
+bearish = ta.crossunder(wt1, wt2)
+
+
+// ==========================
+// 🧠 STORE LAST 10 SIGNALS
+// ==========================
+var signal_types = array.new_string()
+var signal_times = array.new_int()
+
+storeSignal(_type, _time) =>
+    array.push(signal_types, _type)
+    array.push(signal_times, _time)
+
+    if array.size(signal_types) > 10
+        array.shift(signal_types)
+        array.shift(signal_times)
+
+
+// ==========================
+// 📦 BUILD HISTORY JSON
+// ==========================
+buildHistory() =>
+    hist = "["
+    for i = 0 to array.size(signal_types) - 1
+        t = array.get(signal_types, i)
+        tm = array.get(signal_times, i)
+        dt = str.format("{0,date,yyyy-MM-dd HH:mm:ss}", tm)
+
+        hist := hist + "{\"type\":\"" + t + "\",\"datetime\":\"" + dt + "\"}"
+
+        if i < array.size(signal_types) - 1
+            hist := hist + ","
+    hist + "]"
+
+
+// ==========================
+// 🆔 WEBHOOK IDENTIFIER
+// ==========================
+webhook_id = "WT_V1"
+
+
+// ==========================
+// 📊 CHART DATA (NEW ADDITION)
+// ==========================
+candle_type = close > open ? "BULL" : "BEAR"
+body_size = math.abs(close - open)
+candle_range = high - low
+
+
+// ==========================
+// 🚀 UNIVERSAL ALERT FUNCTION
+// ==========================
+sendEvent(_type,_price)=>alert("{\"webhook_id\":\""+webhook_id+"\",\"type\":\""+_type+"\",\"symbol\":\""+syminfo.ticker+"\",\"exchange\":\""+syminfo.prefix+"\",\"interval\":\""+timeframe.period+"\",\"price\":"+str.tostring(_price)+",\"signal\":\""+_type+"\",\"count\":850,\"type_name\":\"WaveTrend\",\"volume_current\":"+str.tostring(volume)+",\"volume_previous\":"+str.tostring(volume[1])+",\"open\":"+str.tostring(open)+",\"high\":"+str.tostring(high)+",\"low\":"+str.tostring(low)+",\"close\":"+str.tostring(close)+",\"candle_type\":\""+candle_type+"\",\"body_size\":"+str.tostring(body_size)+",\"range\":"+str.tostring(candle_range)+",\"datetime\":\""+str.format("{0,date,yyyy-MM-dd HH:mm:ss}", time)+"\",\"history\":"+buildHistory()+",\"timestamp\":"+str.tostring(time)+",\"trigger_timestamp\":"+str.tostring(timenow)+"}",alert.freq_once_per_bar_close)
+
+
+// === ALERT EXECUTION ===
+if bullish
+    storeSignal("BUY", time)
+    sendEvent("BUY", close)
+
+if bearish
+    storeSignal("SELL", time)
+    sendEvent("SELL", close)
+
+
+// === OPTIONAL alertcondition (UNCHANGED) ===
+alertcondition(bullish, title="WaveTrend BUY", message="BUY Signal")
+alertcondition(bearish, title="WaveTrend SELL", message="SELL Signal")
