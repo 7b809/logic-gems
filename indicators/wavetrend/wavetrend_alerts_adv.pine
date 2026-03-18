@@ -1,18 +1,33 @@
 //@version=5
 indicator(title="WaveTrend Adv", shorttitle="WaveTrend + alerts Adv", overlay=true)
 
-// === INPUTS (UNCHANGED) ===
-n1 = input.int(10, "Channel Length")
-n2 = input.int(21, "Average Length")
+// === INPUTS ===
+n1_input = input.int(10, "Channel Length")
+n2_input = input.int(21, "Average Length")
+
 obLevel1 = input.int(60, "Over Bought Level 1")
 obLevel2 = input.int(53, "Over Bought Level 2")
 osLevel1 = input.int(-60, "Over Sold Level 1")
 osLevel2 = input.int(-53, "Over Sold Level 2")
 
-// === OPTIONAL TOGGLE ===
 showWT = input.bool(false, "Show WaveTrend Lines")
+showLabels = input.bool(true, "Show Labels")
+useTrendFilter = input.bool(true, "Enable Trend Filter (EMA 200)")
 
-// === CALCULATIONS (UNCHANGED) ===
+// ==========================
+// ⏱️ AUTO TIMEFRAME LOGIC
+// ==========================
+isLowerTF = timeframe.in_seconds() <= 300
+isHigherTF = timeframe.in_seconds() >= 3600
+
+n1 = isLowerTF ? 7 : isHigherTF ? 14 : n1_input
+n2 = isLowerTF ? 14 : isHigherTF ? 28 : n2_input
+
+tf_mode = isLowerTF ? "FAST" : isHigherTF ? "SLOW" : "NORMAL"
+
+// ==========================
+// 📊 CALCULATIONS
+// ==========================
 ap = hlc3
 esa = ta.ema(ap, n1)
 d = ta.ema(math.abs(ap - esa), n1)
@@ -22,10 +37,16 @@ tci = ta.ema(ci, n2)
 wt1 = tci
 wt2 = ta.sma(wt1, 4)
 
-// === DISPLAY CONTROL ===
+// ==========================
+// 📉 TREND FILTER (EMA 200)
+// ==========================
+ema200 = ta.ema(close, 200)
+
+// ==========================
+// DISPLAY CONTROL
+// ==========================
 disp = showWT ? display.all : display.none
 
-// === PLOTS (HIDDEN BY DEFAULT) ===
 plot(0, color=color.gray, display=disp)
 plot(obLevel1, color=color.red, display=disp)
 plot(osLevel1, color=color.green, display=disp)
@@ -36,44 +57,40 @@ plot(wt1, color=color.green, display=disp)
 plot(wt2, color=color.red, display=disp)
 plot(wt1 - wt2, color=color.blue, style=plot.style_area, transp=80, display=disp)
 
-plot(ta.cross(wt1, wt2) ? wt2 : na, color=color.black, style=plot.style_circles, linewidth=3, display=disp)
-plot(ta.cross(wt1, wt2) ? wt2 : na,
-     color=(wt2 - wt1 > 0 ? color.red : color.lime),
-     style=plot.style_circles,
-     linewidth=2,
-     display=disp)
+// ==========================
+// SIGNALS (WITH FILTER)
+// ==========================
+bullish_raw = ta.crossover(wt1, wt2)
+bearish_raw = ta.crossunder(wt1, wt2)
 
-// === SIGNAL CONDITIONS ===
-bullish = ta.crossover(wt1, wt2)
-bearish = ta.crossunder(wt1, wt2)
-
-// === CANDLE COLOR ===
-barcolor(ta.cross(wt1, wt2) ? (wt2 - wt1 > 0 ? color.aqua : color.yellow) : na)
-
+bullish = useTrendFilter ? (bullish_raw and close > ema200) : bullish_raw
+bearish = useTrendFilter ? (bearish_raw and close < ema200) : bearish_raw
 
 // ==========================
-// 🏷️ LABEL CREATION (UPDATED ONLY)
+// CANDLE COLOR
+// ==========================
+barcolor(ta.cross(wt1, wt2) ? (wt2 - wt1 > 0 ? color.rgb(255, 0, 0) : color.yellow) : na)
+
+// ==========================
+// 🏷️ LABELS
 // ==========================
 formatTime(_time) =>
     str.format("{0,date,HH:mm}", _time)
 
 createLabel(_isBuy, _price) =>
-    lbl_color = _isBuy ? color.green : color.red
-    txt_color = color.white
-    direction = _isBuy ? label.style_label_up : label.style_label_down
+    if showLabels
+        lbl_color = _isBuy ? color.green : color.red
+        txt = (_isBuy ? "BUY\n" : "SELL\n") +
+              "Time: " + formatTime(time) + "\n" +
+              "Price: " + str.tostring(_price) + "\n" +
+              "Vol: " + str.tostring(volume) + "\n" +
+              "Prev Vol: " + str.tostring(volume[1]) + "\n" +
+              "Prev Close: " + str.tostring(close[1])
 
-    txt = (_isBuy ? "BUY\n" : "SELL\n") +
-          "Time: " + formatTime(time) + "\n" +
-          "Price: " + str.tostring(_price) + "\n" +
-          "Vol: " + str.tostring(volume) + "\n" +
-          "Prev Vol: " + str.tostring(volume[1]) + "\n" +
-          "Prev Close: " + str.tostring(close[1])
-
-    label.new(bar_index, _isBuy ? low : high, txt, style=direction, color=lbl_color, textcolor=txt_color, size=size.small)
-
+        label.new(bar_index, _isBuy ? low : high, txt, style=_isBuy ? label.style_label_up : label.style_label_down,color=lbl_color, textcolor=color.white, size=size.small)
 
 // ==========================
-// 🧠 STORE LAST 10 SIGNALS
+// 🧠 STORE SIGNALS
 // ==========================
 var signal_types = array.new_string()
 var signal_times = array.new_int()
@@ -81,14 +98,12 @@ var signal_times = array.new_int()
 storeSignal(_type, _time) =>
     array.push(signal_types, _type)
     array.push(signal_times, _time)
-
     if array.size(signal_types) > 10
         array.shift(signal_types)
         array.shift(signal_times)
 
-
 // ==========================
-// 📦 BUILD HISTORY JSON
+// 📦 HISTORY
 // ==========================
 buildHistory() =>
     hist = "["
@@ -96,35 +111,24 @@ buildHistory() =>
         t = array.get(signal_types, i)
         tm = array.get(signal_times, i)
         dt = str.format("{0,date,yyyy-MM-dd HH:mm:ss}", tm)
-
         hist := hist + "{\"type\":\"" + t + "\",\"datetime\":\"" + dt + "\"}"
-
         if i < array.size(signal_types) - 1
             hist := hist + ","
     hist + "]"
 
-
 // ==========================
-// 🆔 WEBHOOK IDENTIFIER
+// 🆔 WEBHOOK
 // ==========================
 webhook_id = "WT_V1"
 
+// ==========================
+// ALERT FUNCTION (UNCHANGED)
+// ==========================
+sendEvent(_type,_price)=>alert("{\"webhook_id\":\""+webhook_id+"\",\"type\":\""+_type+"\",\"symbol\":\""+syminfo.ticker+"\",\"exchange\":\""+syminfo.prefix+"\",\"interval\":\""+timeframe.period+"\",\"price\":"+str.tostring(_price)+",\"signal\":\""+_type+"\",\"count\":850,\"type_name\":\"WaveTrend\",\"volume_current\":"+str.tostring(volume)+",\"volume_previous\":"+str.tostring(volume[1])+",\"open\":"+str.tostring(open)+",\"high\":"+str.tostring(high)+",\"low\":"+str.tostring(low)+",\"close\":"+str.tostring(close)+",\"candle_type\":\""+(close > open ? "BULL" : "BEAR")+"\",\"body_size\":"+str.tostring(math.abs(close-open))+",\"range\":"+str.tostring(high-low)+",\"datetime\":\""+str.format("{0,date,yyyy-MM-dd HH:mm:ss}", time)+"\",\"history\":"+buildHistory()+",\"timestamp\":"+str.tostring(time)+",\"trigger_timestamp\":"+str.tostring(timenow)+"}",alert.freq_once_per_bar_close)
 
 // ==========================
-// 📊 CHART DATA (UNCHANGED)
+// 🚀 EXECUTION
 // ==========================
-candle_type = close > open ? "BULL" : "BEAR"
-body_size = math.abs(close - open)
-candle_range = high - low
-
-
-// ==========================
-// 🚀 UNIVERSAL ALERT FUNCTION (UNCHANGED)
-// ==========================
-sendEvent(_type,_price)=>alert("{\"webhook_id\":\""+webhook_id+"\",\"type\":\""+_type+"\",\"symbol\":\""+syminfo.ticker+"\",\"exchange\":\""+syminfo.prefix+"\",\"interval\":\""+timeframe.period+"\",\"price\":"+str.tostring(_price)+",\"signal\":\""+_type+"\",\"count\":850,\"type_name\":\"WaveTrend\",\"volume_current\":"+str.tostring(volume)+",\"volume_previous\":"+str.tostring(volume[1])+",\"open\":"+str.tostring(open)+",\"high\":"+str.tostring(high)+",\"low\":"+str.tostring(low)+",\"close\":"+str.tostring(close)+",\"candle_type\":\""+candle_type+"\",\"body_size\":"+str.tostring(body_size)+",\"range\":"+str.tostring(candle_range)+",\"datetime\":\""+str.format("{0,date,yyyy-MM-dd HH:mm:ss}", time)+"\",\"history\":"+buildHistory()+",\"timestamp\":"+str.tostring(time)+",\"trigger_timestamp\":"+str.tostring(timenow)+"}",alert.freq_once_per_bar_close)
-
-
-// === ALERT EXECUTION + LABEL ===
 if bullish
     storeSignal("BUY", time)
     createLabel(true, close)
@@ -134,3 +138,11 @@ if bearish
     storeSignal("SELL", time)
     createLabel(false, close)
     sendEvent("SELL", close)
+
+// ==========================
+// 📊 TF MODE DISPLAY
+// ==========================
+var label tfLabel = na
+if barstate.islast
+    label.delete(tfLabel)
+    tfLabel := label.new(bar_index, high, "TF Mode: " + tf_mode, style=label.style_label_left, color=color.black, textcolor=color.white, size=size.small)
