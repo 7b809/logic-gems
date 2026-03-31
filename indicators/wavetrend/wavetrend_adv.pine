@@ -1,0 +1,177 @@
+//@version=5
+indicator(title="WaveTrend Adv", shorttitle="WaveTrend + alerts Adv", overlay=true)
+
+// === INPUTS ===
+n1_input = input.int(10, "Channel Length")
+n2_input = input.int(21, "Average Length")
+
+obLevel1 = input.int(60, "Over Bought Level 1")
+obLevel2 = input.int(53, "Over Bought Level 2")
+osLevel1 = input.int(-60, "Over Sold Level 1")
+osLevel2 = input.int(-53, "Over Sold Level 2")
+
+showWT = input.bool(false, "Show WaveTrend Lines")
+showLabels = input.bool(true, "Show Labels")
+useTrendFilter = input.bool(true, "Enable Trend Filter (EMA 200)")
+
+// ==========================
+// ⏱️ AUTO TIMEFRAME LOGIC
+// ==========================
+isLowerTF = timeframe.in_seconds() <= 300
+isHigherTF = timeframe.in_seconds() >= 3600
+
+n1 = isLowerTF ? 7 : isHigherTF ? 14 : n1_input
+n2 = isLowerTF ? 14 : isHigherTF ? 28 : n2_input
+
+tf_mode = isLowerTF ? "FAST" : isHigherTF ? "SLOW" : "NORMAL"
+
+// ==========================
+// 📊 CALCULATIONS
+// ==========================
+ap = hlc3
+esa = ta.ema(ap, n1)
+d = ta.ema(math.abs(ap - esa), n1)
+ci = (ap - esa) / (0.015 * d)
+tci = ta.ema(ci, n2)
+
+wt1 = tci
+wt2 = ta.sma(wt1, 4)
+
+// ==========================
+// 📉 TREND FILTER (EMA 200)
+// ==========================
+ema200 = ta.ema(close, 200)
+
+// ==========================
+// DISPLAY CONTROL
+// ==========================
+disp = showWT ? display.all : display.none
+
+plot(0, color=color.gray, display=disp)
+plot(obLevel1, color=color.red, display=disp)
+plot(osLevel1, color=color.green, display=disp)
+plot(obLevel2, color=color.red, display=disp)
+plot(osLevel2, color=color.green, display=disp)
+
+plot(wt1, color=color.green, display=disp)
+plot(wt2, color=color.red, display=disp)
+plot(wt1 - wt2, color=color.new(color.blue, 80), style=plot.style_area, display=disp)
+// ==========================
+// SIGNALS (WITH FILTER)
+// ==========================
+isCross = ta.cross(wt1, wt2)
+isBuy = wt2 - wt1 < 0   // same logic as LazyBear (lime = buy)
+
+// bullish = useTrendFilter ? (bullish_raw and close > ema200) : bullish_raw
+// bearish = useTrendFilter ? (bearish_raw and close < ema200) : bearish_raw
+
+// ==========================
+// CANDLE COLOR
+barcolor(isCross ? (isBuy ? color.yellow : color.rgb(21, 0, 255)) : na)
+barcolor(ta.cross(wt1, wt2) ? (wt2 - wt1 > 0 ? color.rgb(21, 0, 255) : color.yellow) : na)
+
+// ==========================
+// 🏷️ LABELS
+// ==========================
+formatTime(_time) =>
+    str.format("{0,date,HH:mm}", _time)
+
+createLabel(_isBuy, _price) =>
+    if showLabels
+        lbl_color = _isBuy ? color.green : color.red
+
+        // ✅ Volume % change
+        vol_change_perc = volume[1] != 0 ? ((volume - volume[1]) / volume[1]) * 100 : na
+        
+        // ✅ Price % change (Close vs Prev Close)
+        price_change_perc = close[1] != 0 ? ((close - close[1]) / close[1]) * 100 : na
+
+        txt = (_isBuy ? "BUY\n" : "SELL\n") +
+              "Time: " + formatTime(time) + "\n" +
+              "Price: " + str.tostring(_price) + "\n" +
+              "Vol: " + str.tostring(volume) + "\n" +
+              "Prev Vol: " + str.tostring(volume[1]) + "\n" +
+              "Vol %: " + str.tostring(vol_change_perc, "#.##") + "%\n" +
+              "Close: " + str.tostring(close) + "\n" +
+              "Prev Close: " + str.tostring(close[1]) + "\n" +
+              "Price %: " + str.tostring(price_change_perc, "#.##") + "%"
+
+        label.new(bar_index, _isBuy ? low : high, txt,            style=_isBuy ? label.style_label_up : label.style_label_down,            color=lbl_color, textcolor=color.white, size=size.small)
+// ==========================
+// 🧠 STORE SIGNALS
+// ==========================
+var signal_types = array.new_string()
+var signal_times = array.new_int()
+
+storeSignal(_type, _time) =>
+    array.push(signal_types, _type)
+    array.push(signal_times, _time)
+    if array.size(signal_types) > 10
+        array.shift(signal_types)
+        array.shift(signal_times)
+
+// ==========================
+// 📦 HISTORY
+// ==========================
+buildHistory() =>
+    hist = "["
+    for i = 0 to array.size(signal_types) - 1
+        t = array.get(signal_types, i)
+        tm = array.get(signal_times, i)
+        dt = str.format("{0,date,yyyy-MM-dd HH:mm:ss}", tm)
+        hist := hist + "{\"type\":\"" + t + "\",\"datetime\":\"" + dt + "\"}"
+        if i < array.size(signal_types) - 1
+            hist := hist + ","
+    hist + "]"
+
+// ==========================
+// 🆔 WEBHOOK
+// ==========================
+webhook_id = "WT_V1"
+var int buy_signal_count = 0
+var int sell_signal_count = 0
+
+var int trade_id_counter = 0
+var int active_trade_id = na
+
+// ==========================
+// ✅ MODIFIED ALERT FUNCTION (UPGRADED ONLY)
+// ==========================
+sendEvent(_type,_price,_signal_count_data,_trade_id)=>    
+    msg = (_type == "BUY" ? "🚀 BUY SIGNAL\n" : "🔻 SELL SIGNAL\n") +
+      "Symbol: " + syminfo.ticker + "\n" +
+      "Time: " + str.format("{0,date,yyyy-MM-dd HH:mm:ss}", time) + "\n" +
+      "Price: " + str.tostring(_price) + "\n" +
+      "Volume: " + str.tostring(volume)
+
+    alert("{\"chat_id\":\"-1002140106262\",\"text\":\"" + msg + "\",\"webhook_id\":\""+webhook_id+"\",\"type\":\""+_type+"\",\"symbol\":\""+syminfo.ticker+"\",\"exchange\":\""+syminfo.prefix+"\",\"interval\":\""+timeframe.period+"\",\"price\":"+str.tostring(_price)+",\"signal\":\""+_type+"\",\"count\":" + str.tostring(_signal_count_data) + ",\"trade_id\":" + str.tostring(_trade_id) + ",\"type_name\":\"WaveTrend\",\"volume_current\":"+str.tostring(volume)+",\"volume_previous\":"+str.tostring(volume[1])+",\"open\":"+str.tostring(open)+",\"high\":"+str.tostring(high)+",\"low\":"+str.tostring(low)+",\"close\":"+str.tostring(close)+",\"candle_type\":\""+(close > open ? "BULL" : "BEAR")+"\",\"body_size\":"+str.tostring(math.abs(close-open))+",\"range\":"+str.tostring(high-low)+",\"datetime\":\""+str.format("{0,date,yyyy-MM-dd HH:mm:ss}", time)+"\",\"history\":"+buildHistory()+",\"timestamp\":"+str.tostring(time)+",\"trigger_timestamp\":"+str.tostring(timenow)+"}", alert.freq_once_per_bar_close)
+// ==========================
+// 🚀 EXECUTION
+// ==========================
+if isCross
+    if isBuy
+        buy_signal_count += 1
+
+        trade_id_counter += 1
+        active_trade_id := trade_id_counter
+
+        storeSignal("BUY", time)
+        createLabel(true, close)
+        sendEvent("BUY", close, buy_signal_count, active_trade_id)
+
+    else
+        sell_signal_count += 1
+
+        storeSignal("SELL", time)
+        createLabel(false, close)
+        sendEvent("SELL", close, sell_signal_count, active_trade_id)
+
+        active_trade_id := na
+
+// ==========================
+// 📊 TF MODE DISPLAY
+// ==========================
+var label tfLabel = na
+if barstate.islast
+    label.delete(tfLabel)
+    tfLabel := label.new(bar_index, high, "TF Mode: " + tf_mode, style=label.style_label_left, color=color.black, textcolor=color.white, size=size.small)
