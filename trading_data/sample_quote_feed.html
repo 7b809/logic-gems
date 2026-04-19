@@ -1,0 +1,147 @@
+<html lang="en"><head><style>body {transition: opacity ease-in 0.2s; } 
+body[unresolved] {opacity: 0; display: block; overflow: hidden; position: relative; } 
+</style>
+<meta charset="UTF-8">
+<title>Multi Feed Live Dashboard</title>
+
+<style>
+  body {
+    font-family: Arial;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 20px;
+  }
+
+  h2 {
+    color: #38bdf8;
+  }
+
+  .card {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+
+  .status {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .live { color: #22c55e; }
+  .offline { color: #ef4444; }
+  .error { color: #f97316; }
+
+  pre {
+    white-space: pre-wrap;
+    font-size: 13px;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>📡 Multi Index Live Feed</h2>
+
+<div id="feeds"><div class="card"><h3>Security 13</h3><div class="status live">🟢 Connected</div><pre>Waiting...</pre></div><div class="card"><h3>Security 21</h3><div class="status live">🟢 Connected</div><pre>{
+  "type": "Quote Data",
+  "exchange_segment": 0,
+  "security_id": 21,
+  "LTP": "17.21",
+  "LTQ": 0,
+  "LTT": "22:52:13",
+  "avg_price": "0.00",
+  "volume": 0,
+  "total_sell_quantity": 0,
+  "total_buy_quantity": 0,
+  "open": "18.09",
+  "close": "17.21",
+  "high": "18.47",
+  "low": "16.59"
+}</pre></div><div class="card"><h3>Security 51</h3><div class="status live">🟢 Connected</div><pre>{
+  "type": "Quote Data",
+  "exchange_segment": 0,
+  "security_id": 51,
+  "LTP": "78493.54",
+  "LTQ": 0,
+  "LTT": "17:00:01",
+  "avg_price": "0.00",
+  "volume": 0,
+  "total_sell_quantity": 0,
+  "total_buy_quantity": 0,
+  "open": "77976.13",
+  "close": "78493.54",
+  "high": "78553.45",
+  "low": "77726.23"
+}</pre></div><div class="card"><h3>Security 5024</h3><div class="status live">🟢 Connected</div><pre>Waiting...</pre></div></div>
+
+<script>
+const securities = ["13", "21", "51", "5024"];
+const baseUrl = "";
+
+const container = document.getElementById("feeds");
+
+function createFeedCard(secId) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const title = document.createElement("h3");
+  title.textContent = `Security ${secId}`;
+
+  const status = document.createElement("div");
+  status.className = "status";
+  status.textContent = "Connecting...";
+
+  const data = document.createElement("pre");
+  data.textContent = "Waiting...";
+
+  card.appendChild(title);
+  card.appendChild(status);
+  card.appendChild(data);
+
+  container.appendChild(card);
+
+  connectWS(secId, status, data);
+}
+
+function connectWS(secId, statusEl, dataEl) {
+  const wsUrl = `${baseUrl}/${secId}/quote`;
+
+  let ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    statusEl.textContent = "🟢 Connected";
+    statusEl.className = "status live";
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const json = JSON.parse(event.data);
+      dataEl.textContent = JSON.stringify(json, null, 2);
+    } catch {
+      dataEl.textContent = "Parse error";
+    }
+  };
+
+  ws.onerror = () => {
+    statusEl.textContent = "🟠 Error";
+    statusEl.className = "status error";
+  };
+
+  ws.onclose = () => {
+    statusEl.textContent = "🔴 Reconnecting...";
+    statusEl.className = "status offline";
+
+    setTimeout(() => {
+      connectWS(secId, statusEl, dataEl);
+    }, 2000);
+  };
+}
+
+// Initialize all feeds
+securities.forEach(createFeedCard);
+</script>
+
+
+<veepn-lock-screen><style>@font-face{font-family:FigtreeVF;src:url(chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/fonts/FigtreeVF.woff2) format("woff2 supports variations"),url(chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno/fonts/FigtreeVF.woff2) format("woff2-variations");font-weight:100 1000;font-display:swap}</style></veepn-lock-screen></body></html>
