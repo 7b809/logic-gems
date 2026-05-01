@@ -1,0 +1,297 @@
+
+//@version=5
+indicator("Support and Resistance - v3 (Enhanced) - Batch-1.1", shorttitle="SR Batch-1.1", overlay=true)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// INPUTS
+// ---------------------------------------------------------------------------------------------------------------------
+lookbackPeriod = input.int(20)
+vol_len        = input.int(2)
+box_withd      = input.float(1)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// FUNCTIONS
+// ---------------------------------------------------------------------------------------------------------------------
+upAndDownVolume() =>
+    posVol = 0.0
+    negVol = 0.0
+    var isBuyVolume = true
+    switch
+        close > open => isBuyVolume := true
+        close < open => isBuyVolume := false
+    isBuyVolume ? posVol + volume : negVol - volume
+
+getStrike(price, isCE) =>
+    step = 50.0
+    isCE ? math.floor(price / step) * step : math.ceil(price / step) * step
+
+formatTime(_time) =>
+    str.format_time(_time, "yyyy-MM-dd HH:mm", "Asia/Kolkata")
+
+// 🔥 PREDEFINED SYMBOLS
+pe_23000 = "NSE:NIFTY260505P23000"
+pe_23050 = "NSE:NIFTY260505P23050"
+pe_23100 = "NSE:NIFTY260505P23100"
+pe_23150 = "NSE:NIFTY260505P23150"
+pe_23200 = "NSE:NIFTY260505P23200"
+pe_23250 = "NSE:NIFTY260505P23250"
+pe_23300 = "NSE:NIFTY260505P23300"
+pe_23350 = "NSE:NIFTY260505P23350"
+pe_23400 = "NSE:NIFTY260505P23400"
+pe_23450 = "NSE:NIFTY260505P23450"
+pe_23500 = "NSE:NIFTY260505P23500"
+pe_23550 = "NSE:NIFTY260505P23550"
+pe_23600 = "NSE:NIFTY260505P23600"
+pe_23650 = "NSE:NIFTY260505P23650"
+pe_23700 = "NSE:NIFTY260505P23700"
+pe_23750 = "NSE:NIFTY260505P23750"
+pe_23800 = "NSE:NIFTY260505P23800"
+pe_23850 = "NSE:NIFTY260505P23850"
+pe_23900 = "NSE:NIFTY260505P23900"
+pe_23950 = "NSE:NIFTY260505P23950"
+ce_23000 = "NSE:NIFTY260505C23000"
+ce_23050 = "NSE:NIFTY260505C23050"
+ce_23100 = "NSE:NIFTY260505C23100"
+ce_23150 = "NSE:NIFTY260505C23150"
+ce_23200 = "NSE:NIFTY260505C23200"
+ce_23250 = "NSE:NIFTY260505C23250"
+ce_23300 = "NSE:NIFTY260505C23300"
+ce_23350 = "NSE:NIFTY260505C23350"
+ce_23400 = "NSE:NIFTY260505C23400"
+ce_23450 = "NSE:NIFTY260505C23450"
+ce_23500 = "NSE:NIFTY260505C23500"
+ce_23550 = "NSE:NIFTY260505C23550"
+ce_23600 = "NSE:NIFTY260505C23600"
+ce_23650 = "NSE:NIFTY260505C23650"
+ce_23700 = "NSE:NIFTY260505C23700"
+ce_23750 = "NSE:NIFTY260505C23750"
+ce_23800 = "NSE:NIFTY260505C23800"
+ce_23850 = "NSE:NIFTY260505C23850"
+ce_23900 = "NSE:NIFTY260505C23900"
+ce_23950 = "NSE:NIFTY260505C23950"
+
+// 🔥 FETCH LTP
+ltp_pe_23000 = request.security(pe_23000, timeframe.period, close)
+ltp_pe_23050 = request.security(pe_23050, timeframe.period, close)
+ltp_pe_23100 = request.security(pe_23100, timeframe.period, close)
+ltp_pe_23150 = request.security(pe_23150, timeframe.period, close)
+ltp_pe_23200 = request.security(pe_23200, timeframe.period, close)
+ltp_pe_23250 = request.security(pe_23250, timeframe.period, close)
+ltp_pe_23300 = request.security(pe_23300, timeframe.period, close)
+ltp_pe_23350 = request.security(pe_23350, timeframe.period, close)
+ltp_pe_23400 = request.security(pe_23400, timeframe.period, close)
+ltp_pe_23450 = request.security(pe_23450, timeframe.period, close)
+ltp_pe_23500 = request.security(pe_23500, timeframe.period, close)
+ltp_pe_23550 = request.security(pe_23550, timeframe.period, close)
+ltp_pe_23600 = request.security(pe_23600, timeframe.period, close)
+ltp_pe_23650 = request.security(pe_23650, timeframe.period, close)
+ltp_pe_23700 = request.security(pe_23700, timeframe.period, close)
+ltp_pe_23750 = request.security(pe_23750, timeframe.period, close)
+ltp_pe_23800 = request.security(pe_23800, timeframe.period, close)
+ltp_pe_23850 = request.security(pe_23850, timeframe.period, close)
+ltp_pe_23900 = request.security(pe_23900, timeframe.period, close)
+ltp_pe_23950 = request.security(pe_23950, timeframe.period, close)
+ltp_ce_23000 = request.security(ce_23000, timeframe.period, close)
+ltp_ce_23050 = request.security(ce_23050, timeframe.period, close)
+ltp_ce_23100 = request.security(ce_23100, timeframe.period, close)
+ltp_ce_23150 = request.security(ce_23150, timeframe.period, close)
+ltp_ce_23200 = request.security(ce_23200, timeframe.period, close)
+ltp_ce_23250 = request.security(ce_23250, timeframe.period, close)
+ltp_ce_23300 = request.security(ce_23300, timeframe.period, close)
+ltp_ce_23350 = request.security(ce_23350, timeframe.period, close)
+ltp_ce_23400 = request.security(ce_23400, timeframe.period, close)
+ltp_ce_23450 = request.security(ce_23450, timeframe.period, close)
+ltp_ce_23500 = request.security(ce_23500, timeframe.period, close)
+ltp_ce_23550 = request.security(ce_23550, timeframe.period, close)
+ltp_ce_23600 = request.security(ce_23600, timeframe.period, close)
+ltp_ce_23650 = request.security(ce_23650, timeframe.period, close)
+ltp_ce_23700 = request.security(ce_23700, timeframe.period, close)
+ltp_ce_23750 = request.security(ce_23750, timeframe.period, close)
+ltp_ce_23800 = request.security(ce_23800, timeframe.period, close)
+ltp_ce_23850 = request.security(ce_23850, timeframe.period, close)
+ltp_ce_23900 = request.security(ce_23900, timeframe.period, close)
+ltp_ce_23950 = request.security(ce_23950, timeframe.period, close)
+
+// 🔥 MAPPING FUNCTIONS
+getPELTP(strike) =>
+    switch strike
+        23000 => ltp_pe_23000
+        23050 => ltp_pe_23050
+        23100 => ltp_pe_23100
+        23150 => ltp_pe_23150
+        23200 => ltp_pe_23200
+        23250 => ltp_pe_23250
+        23300 => ltp_pe_23300
+        23350 => ltp_pe_23350
+        23400 => ltp_pe_23400
+        23450 => ltp_pe_23450
+        23500 => ltp_pe_23500
+        23550 => ltp_pe_23550
+        23600 => ltp_pe_23600
+        23650 => ltp_pe_23650
+        23700 => ltp_pe_23700
+        23750 => ltp_pe_23750
+        23800 => ltp_pe_23800
+        23850 => ltp_pe_23850
+        23900 => ltp_pe_23900
+        23950 => ltp_pe_23950
+        => na
+
+getCELTP(strike) =>
+    switch strike
+        23000 => ltp_ce_23000
+        23050 => ltp_ce_23050
+        23100 => ltp_ce_23100
+        23150 => ltp_ce_23150
+        23200 => ltp_ce_23200
+        23250 => ltp_ce_23250
+        23300 => ltp_ce_23300
+        23350 => ltp_ce_23350
+        23400 => ltp_ce_23400
+        23450 => ltp_ce_23450
+        23500 => ltp_ce_23500
+        23550 => ltp_ce_23550
+        23600 => ltp_ce_23600
+        23650 => ltp_ce_23650
+        23700 => ltp_ce_23700
+        23750 => ltp_ce_23750
+        23800 => ltp_ce_23800
+        23850 => ltp_ce_23850
+        23900 => ltp_ce_23900
+        23950 => ltp_ce_23950
+        => na
+
+getPESymbol(strike) =>
+    switch strike
+        23000 => pe_23000
+        23050 => pe_23050
+        23100 => pe_23100
+        23150 => pe_23150
+        23200 => pe_23200
+        23250 => pe_23250
+        23300 => pe_23300
+        23350 => pe_23350
+        23400 => pe_23400
+        23450 => pe_23450
+        23500 => pe_23500
+        23550 => pe_23550
+        23600 => pe_23600
+        23650 => pe_23650
+        23700 => pe_23700
+        23750 => pe_23750
+        23800 => pe_23800
+        23850 => pe_23850
+        23900 => pe_23900
+        23950 => pe_23950
+        => na
+
+getCESymbol(strike) =>
+    switch strike
+        23000 => ce_23000
+        23050 => ce_23050
+        23100 => ce_23100
+        23150 => ce_23150
+        23200 => ce_23200
+        23250 => ce_23250
+        23300 => ce_23300
+        23350 => ce_23350
+        23400 => ce_23400
+        23450 => ce_23450
+        23500 => ce_23500
+        23550 => ce_23550
+        23600 => ce_23600
+        23650 => ce_23650
+        23700 => ce_23700
+        23750 => ce_23750
+        23800 => ce_23800
+        23850 => ce_23850
+        23900 => ce_23900
+        23950 => ce_23950
+        => na
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 🔥 CORE LOGIC (ENHANCED)
+// ---------------------------------------------------------------------------------------------------------------------
+calcSupportResistance(src) =>
+    Vol = upAndDownVolume()
+    vol_hi = ta.highest(Vol/2.5, vol_len)
+    vol_lo = ta.lowest(Vol/2.5, vol_len)
+
+    var float support = na
+    var float resistance = na
+
+    ph = ta.pivothigh(src, lookbackPeriod, lookbackPeriod)
+    pl = ta.pivotlow(src, lookbackPeriod, lookbackPeriod)
+
+    if not na(pl) and Vol > vol_hi
+        support := pl
+
+    if not na(ph) and Vol < vol_lo
+        resistance := ph
+
+    res_holds   = ta.crossunder(high, resistance)
+    sup_holds   = ta.crossover(low, support)
+    brekout_res = ta.crossover(low, resistance)
+    brekout_sup = ta.crossunder(high, support)
+
+    [res_holds, sup_holds, brekout_res, brekout_sup]
+
+// ---------------------------------------------------------------------------------------------------------------------
+[res_holds, sup_holds, brekout_res, brekout_sup] = calcSupportResistance(close)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 🔥 STATE TRACKING
+// ---------------------------------------------------------------------------------------------------------------------
+var bool res_is_sup = na
+var bool sup_is_res = na
+
+switch
+    brekout_res => res_is_sup := true
+    res_holds   => res_is_sup := false
+
+switch
+    brekout_sup => sup_is_res := true
+    sup_holds   => sup_is_res := false
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 🔥 ALERTS
+// ---------------------------------------------------------------------------------------------------------------------
+strike_pe = int(getStrike(high[1], false))
+ltp_pe    = getPELTP(strike_pe)
+sym_pe    = getPESymbol(strike_pe)
+
+strike_ce = int(getStrike(low[1], true))
+ltp_ce    = getCELTP(strike_ce)
+sym_ce    = getCESymbol(strike_ce)
+
+msg1 = '{"message":"Res_Hold Price=' + str.tostring(high[1]) + ' Type=buyPE Strike=' + str.tostring(strike_pe) + ' StrikeLivePrice=' + str.tostring(ltp_pe) + ' Symbol=' + str.tostring(sym_pe) + ' Flag=true Time=' + formatTime(time[1]) + '"}'
+
+msg2 = '{"message":"Sup_Hold Price=' + str.tostring(low[1]) + ' Type=buyCE Strike=' + str.tostring(strike_ce) + ' StrikeLivePrice=' + str.tostring(ltp_ce) + ' Symbol=' + str.tostring(sym_ce) + ' Flag=true Time=' + formatTime(time[1]) + '"}'
+
+msg3 = '{"message":"Res_to_Sup Price=' + str.tostring(low[1]) + ' Type=buyCE Strike=' + str.tostring(strike_ce) + ' StrikeLivePrice=' + str.tostring(ltp_ce) + ' Symbol=' + str.tostring(sym_ce) + ' Flag=true Time=' + formatTime(time[1]) + '"}'
+
+msg4 = '{"message":"Sup_to_Res Price=' + str.tostring(high[1]) + ' Type=buyPE Strike=' + str.tostring(strike_pe) + ' StrikeLivePrice=' + str.tostring(ltp_pe) + ' Symbol=' + str.tostring(sym_pe) + ' Flag=true Time=' + formatTime(time[1]) + '"}'
+// ---------------------------------------------------------------------------------------------------------------------
+// 🔥 EXECUTION (ONLY CHANGE APPLIED)
+// ---------------------------------------------------------------------------------------------------------------------
+offset = syminfo.mintick * 10
+
+if res_holds and barstate.isconfirmed and not na(ltp_pe)
+    label.new(bar_index[1], high[1] + offset, msg1, style=label.style_label_down, color=color.red, textcolor=color.white)
+    alert(msg1, alert.freq_once_per_bar_close)
+
+if sup_holds and barstate.isconfirmed and not na(ltp_ce)
+    label.new(bar_index[1], low[1] - offset, msg2, style=label.style_label_up, color=color.green, textcolor=color.white)
+    alert(msg2, alert.freq_once_per_bar_close)
+
+if brekout_res and res_is_sup[1] and barstate.isconfirmed and not na(ltp_ce)
+    label.new(bar_index[1], low[1], msg3, style=label.style_label_up, color=color.green, textcolor=color.white)
+    alert(msg3, alert.freq_once_per_bar_close)
+
+if brekout_sup and sup_is_res[1] and barstate.isconfirmed and not na(ltp_pe)
+    label.new(bar_index[1], high[1], msg4, style=label.style_label_down, color=color.red, textcolor=color.white)
+    alert(msg4, alert.freq_once_per_bar_close)
+
+
+
+    
