@@ -18,6 +18,12 @@ lookbackPeriod = input.int(20, "Lookback Period")
 vol_len = input.int(2, "Delta Volume Filter Length")
 box_withd = input.float(1, "Adjust Box Width")
 
+// ---------------------------------------------------------------------------------------------------------------------
+// TEST MODE
+// ---------------------------------------------------------------------------------------------------------------------
+
+enableTestAlerts = input.bool(false, "Enable Test Alerts")
+testAlertTickGap = input.int(10, "Test Alert Every N Bars")
 
 // ---------------------------------------------------------------------------------------------------------------------
 // FUNCTIONS
@@ -176,7 +182,7 @@ if res_holds
 
     [strike, symbol, optionLtp] = buildOptionData(close, true)
 
-    msg = "Res_Hold Price=" + str.tostring(math.round(resistanceLevel, 2)) + " Type=buyCE Strike=" + str.tostring(strike) + " StrikeLivePrice=" + str.tostring(math.round(optionLtp, 2)) + " Symbol=" + symbol + " Flag=true Time=" + formatTime(time)
+    msg = "Res_Hold Price=" + str.tostring(math.round(resistanceLevel, 2)) + " Type=buyPE Strike=" + str.tostring(strike) + " StrikeLivePrice=" + str.tostring(math.round(optionLtp, 2)) + " Symbol=" + symbol + " Flag=true Time=" + formatTime(time)
 
     label.new(bar_index, resistanceLevel, msg, style = label.style_label_down, color = color.red, textcolor = color.white)
 
@@ -211,7 +217,20 @@ if brekout_res and not res_is_sup[1]
     label.new(bar_index[1], resistanceLevel[1], msg, style = label.style_label_up, color = #2b6d2d, textcolor = color.white)
 
     alert(msg, alert.freq_once_per_bar_close)
-"""
+
+// ---------------------------------------------------------------------------------------------------------------------
+// TEST ALERTS
+// ---------------------------------------------------------------------------------------------------------------------
+
+if enableTestAlerts and (bar_index % testAlertTickGap == 0)
+
+    testMsg = "TEST_ALERT Price=" + str.tostring(close) + " Type=buyCE Strike=24000 StrikeLivePrice=100 Symbol=NSE:NIFTY260512C24000 Flag=true Time=" + formatTime(time)
+
+    label.new(bar_index, high, testMsg, style = label.style_label_down, color = color.orange, textcolor = color.white)
+
+    alert(testMsg, alert.freq_once_per_bar)    
+    
+    """
 
 
 # -------------------------------------------------------------------------------------------------
