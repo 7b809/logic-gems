@@ -1,142 +1,152 @@
 //@version=5
-indicator("Support and Resistance (High Volume Boxes) [ChartPrime]", shorttitle="SR Breaks and Retests [ChartPrime]", overlay=true, max_boxes_count=50)
+indicator("SR Batch", shorttitle="SR B", overlay=true, max_boxes_count=50)
 
-// ---------------------------------------------------------------------------------------------------------------------
-// USER INPUTS
-// ---------------------------------------------------------------------------------------------------------------------
-lookbackPeriod = input.int(20, "Lookback Period", minval=1, group="Settings")
-vol_len        = input.int(2, "Delta Volume Filter Length", group="Settings")
-box_withd      = input.float(1, "Adjust Box Width", maxval=1000, minval=0, step=0.1)
+lookbackPeriod = input.int(20, "Lookback Period")
+vol_len = input.int(2, "Delta Volume Filter Length")
+box_withd = input.float(1, "Adjust Box Width")
 
-// ---------------------------------------------------------------------------------------------------------------------
-// DATE & TIME FORMAT
-// ---------------------------------------------------------------------------------------------------------------------
-dateStr = str.format("{0,date,yyyy-MM-dd}", time)
-timeStr = str.format("{0,time,HH:mm}", time)
+enableTestAlerts = input.bool(false, "Enable Test Alerts")
+testAlertTickGap = input.int(10, "Test Alert Every N Bars")
 
-// ---------------------------------------------------------------------------------------------------------------------
-// UNIVERSAL ALERT FUNCTION (ONE LINE ONLY)
-// ---------------------------------------------------------------------------------------------------------------------
-sendEvent(_direction,_type,_typeCount,_price)=>alert("{\"symbol\":\""+syminfo.ticker+"\",\"direction\":\""+_direction+"\",\"type\":\""+_type+"\",\"type_count\":\""+_typeCount+"\",\"strike\":\"na\",\"main_index\":\"na\",\"date\":\""+dateStr+"\",\"time\":\""+timeStr+"\",\"price\":"+str.tostring(_price)+",\"timestamp\":"+str.tostring(time)+"}",alert.freq_once_per_bar_close)
-
-// ---------------------------------------------------------------------------------------------------------------------
-// DELTA VOLUME
-// ---------------------------------------------------------------------------------------------------------------------
 upAndDownVolume() =>
     posVol = 0.0
     negVol = 0.0
     var isBuyVolume = true
+
     switch
         close > open => isBuyVolume := true
         close < open => isBuyVolume := false
+
     if isBuyVolume
         posVol += volume
     else
         negVol -= volume
+
     posVol + negVol
 
-Vol    = upAndDownVolume()
-vol_hi = ta.highest(Vol/2.5, vol_len)
-vol_lo = ta.lowest(Vol/2.5, vol_len)
+formatTime(_time) => str.format_time(_time, "yyyy-MM-dd HH:mm", "Asia/Kolkata")
 
-// ---------------------------------------------------------------------------------------------------------------------
-// PERSISTENT VARIABLES
-// ---------------------------------------------------------------------------------------------------------------------
-var float supportLevel      = na
-var float supportLevel_1    = na
-var float resistanceLevel   = na
-var float resistanceLevel_1 = na
-var box   sup               = na
-var box   res               = na
-var color sup_color         = na
-var color res_color         = na
+getStrike(price, isCE) =>
+    step = 50.0
+    isCE ? math.floor(price / step) * step : math.ceil(price / step) * step
 
-// ---------------------------------------------------------------------------------------------------------------------
-// PIVOTS
-// ---------------------------------------------------------------------------------------------------------------------
-pivotHigh = ta.pivothigh(close, lookbackPeriod, lookbackPeriod)
-pivotLow  = ta.pivotlow(close, lookbackPeriod, lookbackPeriod)
+calcSupportResistance(src, lookbackPeriod) =>
 
-atr   = ta.atr(200)
-withd = atr * box_withd
+    Vol = upAndDownVolume()
 
-// ---------------------------------------------------------------------------------------------------------------------
-// CREATE SUPPORT BOX
-// ---------------------------------------------------------------------------------------------------------------------
-if (not na(pivotLow)) and Vol > vol_hi
-    supportLevel   := pivotLow
-    supportLevel_1 := supportLevel - withd
+    vol_hi = ta.highest(Vol / 2.5, vol_len)
+    vol_lo = ta.lowest(Vol / 2.5, vol_len)
 
-    topLeft     = chart.point.from_index(bar_index - lookbackPeriod, supportLevel)
-    bottomRight = chart.point.from_index(bar_index, supportLevel_1)
+    var float supportLevel = na
+    var float supportLevel_1 = na
 
-    sup_color := color.from_gradient(Vol, 0, ta.highest(Vol, 25), color(na), color.new(color.green, 30))
+    var float resistanceLevel = na
+    var float resistanceLevel_1 = na
 
-    sup := box.new(top_left=topLeft, bottom_right=bottomRight, border_color=color.green, border_width=1, bgcolor=sup_color)
-    
-// ---------------------------------------------------------------------------------------------------------------------
-// CREATE RESISTANCE BOX
-// ---------------------------------------------------------------------------------------------------------------------
-if (not na(pivotHigh)) and Vol < vol_lo
-    resistanceLevel   := pivotHigh
-    resistanceLevel_1 := resistanceLevel + withd
+    var box sup = na
+    var box res = na
 
-    topLeft     = chart.point.from_index(bar_index - lookbackPeriod, resistanceLevel)
-    bottomRight = chart.point.from_index(bar_index, resistanceLevel_1)
+    pivotHigh = ta.pivothigh(src, lookbackPeriod, lookbackPeriod)
+    pivotLow = ta.pivotlow(src, lookbackPeriod, lookbackPeriod)
 
-    res_color := color.from_gradient(Vol, ta.lowest(Vol, 25), 0, color.new(color.red, 30), color(na))
+    atr = ta.atr(200)
+    withd = atr * box_withd
 
-    res := box.new(top_left=topLeft, bottom_right=bottomRight, border_color=color.red, border_width=1, bgcolor=res_color)
+    if (not na(pivotLow)) and Vol > vol_hi
+        supportLevel := pivotLow
+        supportLevel_1 := supportLevel - withd
+        topLeft = chart.point.from_index(bar_index - lookbackPeriod, supportLevel)
+        bottomRight = chart.point.from_index(bar_index, supportLevel_1)
+        sup := box.new(top_left = topLeft, bottom_right = bottomRight, border_color = color.green, bgcolor = color.new(color.green, 85))
 
-// Extend boxes
-if not na(sup)
+    if (not na(pivotHigh)) and Vol < vol_lo
+        resistanceLevel := pivotHigh
+        resistanceLevel_1 := resistanceLevel + withd
+        topLeft = chart.point.from_index(bar_index - lookbackPeriod, resistanceLevel)
+        bottomRight = chart.point.from_index(bar_index, resistanceLevel_1)
+        res := box.new(top_left = topLeft, bottom_right = bottomRight, border_color = color.red, bgcolor = color.new(color.red, 85))
+
     sup.set_right(bar_index + 1)
-
-if not na(res)
     res.set_right(bar_index + 1)
 
-// ---------------------------------------------------------------------------------------------------------------------
-// BREAKOUT & HOLD CONDITIONS
-// ---------------------------------------------------------------------------------------------------------------------
-brekout_res = not na(resistanceLevel_1) and ta.crossover(low, resistanceLevel_1)
-brekout_sup = not na(supportLevel_1) and ta.crossunder(high, supportLevel_1)
+    brekout_res = ta.crossover(low, resistanceLevel_1)
+    res_holds = ta.crossunder(high, resistanceLevel)
 
-res_holds   = not na(resistanceLevel) and ta.crossunder(high, resistanceLevel)
-sup_holds   = not na(supportLevel) and ta.crossover(low, supportLevel)
+    sup_holds = ta.crossover(low, supportLevel)
+    brekout_sup = ta.crossunder(high, supportLevel_1)
 
-// Change box styling on break
-if brekout_sup and not na(sup)
-    sup.set_bgcolor(color.new(color.red, 80))
-    sup.set_border_color(color.red)
-    sup.set_border_style(line.style_dashed)
+    [supportLevel, resistanceLevel, brekout_res, res_holds, sup_holds, brekout_sup, Vol]
 
-if brekout_res and not na(res)
-    res.set_bgcolor(color.new(color.green, 80))
-    res.set_border_color(color.green)
-    res.set_border_style(line.style_dashed)
+[supportLevel, resistanceLevel, brekout_res, res_holds, sup_holds, brekout_sup, Vol] = calcSupportResistance(close, lookbackPeriod)
 
-// ---------------------------------------------------------------------------------------------------------------------
-// VISUAL MARKERS
-// ---------------------------------------------------------------------------------------------------------------------
-plotchar(res_holds, "Resistance Holds", "◆", color=color.red, size=size.tiny, location=location.abovebar)
-plotchar(sup_holds, "Support Holds", "◆", color=color.green, size=size.tiny, location=location.belowbar)
+var bool res_is_sup = na
+var bool sup_is_res = na
 
-// ---------------------------------------------------------------------------------------------------------------------
-// ALERT TRIGGERS
-// ---------------------------------------------------------------------------------------------------------------------
+switch
+    brekout_res => res_is_sup := true
+    res_holds => res_is_sup := false
 
-// Break Resistance → Bullish
-if brekout_res
-    sendEvent("Long","bullish","bull1",close)
+switch
+    brekout_sup => sup_is_res := true
+    sup_holds => sup_is_res := false
 
-// Break Support → Bearish
-if brekout_sup
-    sendEvent("Short","bearish","bear1",close)
+plotchar(res_holds, "Resistance Holds", "◆", color=color.red, location=location.abovebar, offset=-1)
+plotchar(sup_holds, "Support Holds", "◆", color=color.green, location=location.belowbar, offset=-1)
 
-// Resistance Holds → Rejection
-if res_holds
-    sendEvent("Short","rejection","rej1",close)
-
-// Support Holds → Bounce
 if sup_holds
-    sendEvent("Long","bounce","bounce1",close)
+
+    strike = getStrike(close, false)
+
+    msg = "Sup_Hold Price=" + str.tostring(math.round(supportLevel, 2)) + " Type=buyPE Strike=" + str.tostring(strike) + " Time=" + formatTime(time)
+
+    label.new(bar_index, supportLevel, msg, style = label.style_label_up, color = color.green, textcolor = color.white)
+
+    jsonMsg = '{"message":"' + msg + '"}'
+
+    alert(jsonMsg, alert.freq_once_per_bar_close)
+
+if res_holds
+
+    strike = getStrike(close, true)
+
+    msg = "Res_Hold Price=" + str.tostring(math.round(resistanceLevel, 2)) + " Type=buyPE Strike=" + str.tostring(strike) + " Time=" + formatTime(time)
+
+    label.new(bar_index, resistanceLevel, msg, style = label.style_label_down, color = color.red, textcolor = color.white)
+
+    jsonMsg = '{"message":"' + msg + '"}'
+
+    alert(jsonMsg, alert.freq_once_per_bar_close)
+
+if brekout_sup and not sup_is_res[1]
+
+    strike = getStrike(close, false)
+
+    msg = "Break_Sup Price=" + str.tostring(math.round(supportLevel[1], 2)) + " Type=buyPE Strike=" + str.tostring(strike) + " Time=" + formatTime(time)
+
+    label.new(bar_index[1], supportLevel[1], msg, style = label.style_label_down, color = #7e1e1e, textcolor = color.white)
+
+    jsonMsg = '{"message":"' + msg + '"}'
+
+    alert(jsonMsg, alert.freq_once_per_bar_close)
+
+if brekout_res and not res_is_sup[1]
+
+    strike = getStrike(close, true)
+
+    msg = "Break_Res Price=" + str.tostring(math.round(resistanceLevel[1], 2)) + " Type=buyCE Strike=" + str.tostring(strike) + " Time=" + formatTime(time)
+
+    label.new(bar_index[1], resistanceLevel[1], msg, style = label.style_label_up, color = #2b6d2d, textcolor = color.white)
+
+    jsonMsg = '{"message":"' + msg + '"}'
+
+    alert(jsonMsg, alert.freq_once_per_bar_close)
+
+if enableTestAlerts and (bar_index % testAlertTickGap == 0)
+
+    testMsg = "TEST_ALERT Price=" + str.tostring(close) + " Type=buyCE Strike=24000 Time=" + formatTime(time)
+
+    label.new(bar_index, high, testMsg, style = label.style_label_down, color = color.orange, textcolor = color.white)
+
+    jsonMsg = '{"message":"' + testMsg + '"}'
+
+    alert(jsonMsg, alert.freq_once_per_bar)
