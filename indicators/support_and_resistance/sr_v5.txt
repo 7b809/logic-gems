@@ -1,0 +1,394 @@
+//@version=5
+
+indicator("SR - v5", shorttitle="SR - v5", overlay=true, max_boxes_count=50)
+
+
+
+// === INPUTS ===
+
+lookbackPeriod = input.int(20, "Lookback Period")
+
+vol_len = input.int(2, "Delta Volume Filter Length")
+
+box_withd = input.float(1, "Adjust Box Width")
+
+highlightNumber = input.int(0, "Highlight Serial Number (0 = Off)")
+
+showIgnored = input.bool(true, "Show Ignored Signals")
+
+
+
+enableTestAlerts = input.bool(false, "Enable Test Alerts")
+
+testAlertTickGap = input.int(10, "Test Alert Every N Bars")
+
+
+
+var string lastAllowedType = na
+
+var int signalCount = 0
+
+
+
+// ✅ DATE FORMAT
+
+getShortDate(_time) =>
+
+    d = dayofmonth(_time)
+
+    m = month(_time)
+
+    dayStr = (d < 10 ? "0" : "") + str.tostring(d)
+
+    monStr = (m < 10 ? "0" : "") + str.tostring(m)
+
+    "D_" + dayStr + "_" + monStr
+
+
+
+getStatus(currType) =>
+
+    status = "Allowed"
+
+    if not na(lastAllowedType) and currType == lastAllowedType
+
+        status := "Ignored"
+
+    status
+
+
+
+getColor(baseColor, status, count) =>
+
+    highlightColor = color.yellow
+
+    selectedColor = status == "Allowed" ? baseColor : color.gray
+
+    highlightNumber != 0 and count == highlightNumber ? highlightColor : selectedColor
+
+
+
+// ✅ VOLUME
+
+upAndDownVolume() =>
+
+    posVol = 0.0
+
+    negVol = 0.0
+
+    isBuyVolume = close > open
+
+    if isBuyVolume
+
+        posVol += volume
+
+    else
+
+        negVol -= volume
+
+    posVol + negVol
+
+
+
+formatTime(_time) => str.format_time(_time, "yyyy-MM-dd HH:mm", "Asia/Kolkata")
+
+
+
+getStrike(price, isCE) =>
+
+    step = 50.0
+
+    isCE ? math.floor(price / step) * step : math.ceil(price / step) * step
+
+
+
+// ✅ DAY HIGH/LOW TRACKING
+
+var float dayLow = na
+
+var float dayHigh = na
+
+
+
+isNewDay = ta.change(time("D"))
+
+
+
+if isNewDay
+
+    dayLow := low
+
+    dayHigh := high
+
+else
+
+    dayLow := math.min(dayLow, low)
+
+    dayHigh := math.max(dayHigh, high)
+
+
+
+dayLowAvg  = (dayLow + close) / 2
+
+dayHighAvg = (dayHigh + close) / 2
+
+
+
+// ✅ SUPPORT / RESISTANCE
+
+calcSupportResistance(src, lookbackPeriod) =>
+
+    Vol = upAndDownVolume()
+
+    vol_hi = ta.highest(Vol / 2.5, vol_len)
+
+    vol_lo = ta.lowest(Vol / 2.5, vol_len)
+
+
+
+    var float supportLevel = na
+
+    var float resistanceLevel = na
+
+    var float supportLevel_1 = na
+
+    var float resistanceLevel_1 = na
+
+
+
+    pivotHigh = ta.pivothigh(src, lookbackPeriod, lookbackPeriod)
+
+    pivotLow = ta.pivotlow(src, lookbackPeriod, lookbackPeriod)
+
+
+
+    atr = ta.atr(200)
+
+    withd = atr * box_withd
+
+
+
+    if not na(pivotLow) and Vol > vol_hi
+
+        supportLevel := pivotLow
+
+        supportLevel_1 := supportLevel - withd
+
+
+
+    if not na(pivotHigh) and Vol < vol_lo
+
+        resistanceLevel := pivotHigh
+
+        resistanceLevel_1 := resistanceLevel + withd
+
+
+
+    brekout_res = ta.crossover(low, resistanceLevel_1)
+
+    res_holds = ta.crossunder(high, resistanceLevel)
+
+    sup_holds = ta.crossover(low, supportLevel)
+
+    brekout_sup = ta.crossunder(high, supportLevel_1)
+
+
+
+    [supportLevel, resistanceLevel, brekout_res, res_holds, sup_holds, brekout_sup]
+
+
+
+[supportLevel, resistanceLevel, brekout_res, res_holds, sup_holds, brekout_sup] =    calcSupportResistance(close, lookbackPeriod)
+
+
+
+// === FLAGS ===
+
+var bool res_is_sup = false
+
+var bool sup_is_res = false
+
+
+
+if brekout_res
+
+    res_is_sup := true
+
+else if res_holds
+
+    res_is_sup := false
+
+
+
+if brekout_sup
+
+    sup_is_res := true
+
+else if sup_holds
+
+    sup_is_res := false
+
+
+
+// === VISUAL ===
+
+plotchar(res_holds, "Resistance Holds", "◆", color=color.red, location=location.abovebar)
+
+plotchar(sup_holds, "Support Holds", "◆", color=color.green, location=location.belowbar)
+
+
+
+// ✅ COMMON MESSAGE BUILDER
+
+buildMsg(prefix, price, strike, type, status) =>
+
+    "Count=" + prefix + " Price=" + str.tostring(math.round(price, 2)) + " Type=" + type + " Strike=" + str.tostring(strike) + " Status=" + status + " DL=" + str.tostring(math.round(dayLow, 2)) + " DL_Avg=" + str.tostring(math.round(dayLowAvg, 2)) + " DH=" + str.tostring(math.round(dayHigh, 2)) + " DH_Avg=" + str.tostring(math.round(dayHighAvg, 2)) + " Time=" + formatTime(time)
+
+
+
+// ✅ SUPPORT HOLD → CE
+
+if sup_holds
+
+    signalCount += 1
+
+    strike = getStrike(close, false)
+
+    currType = "CE"
+
+    status = getStatus(currType)
+
+    countStr = getShortDate(time) + "_" + str.tostring(signalCount)
+
+
+
+    msg = buildMsg(countStr + " Sup_Hold", supportLevel, strike, "buyCE", status)
+
+
+
+    if showIgnored or status == "Allowed"
+
+        label.new(bar_index, supportLevel, msg, style=label.style_label_up,            color=getColor(color.green, status, signalCount), textcolor=color.black)
+
+
+
+    if status == "Allowed"
+
+        lastAllowedType := currType
+
+        alert('{"message":"' + msg + '"}', alert.freq_once_per_bar_close)
+
+
+
+// ✅ RES HOLD → PE
+
+if res_holds
+
+    signalCount += 1
+
+    strike = getStrike(close, true)
+
+    currType = "PE"
+
+    status = getStatus(currType)
+
+    countStr = getShortDate(time) + "_" + str.tostring(signalCount)
+
+
+
+    msg = buildMsg(countStr + " Res_Hold", resistanceLevel, strike, "buyPE", status)
+
+
+
+    if showIgnored or status == "Allowed"
+
+        label.new(bar_index, resistanceLevel, msg, style=label.style_label_down,            color=getColor(color.red, status, signalCount), textcolor=color.black)
+
+
+
+    if status == "Allowed"
+
+        lastAllowedType := currType
+
+        alert('{"message":"' + msg + '"}', alert.freq_once_per_bar_close)
+
+
+
+// ✅ BREAK SUPPORT → PE
+
+if brekout_sup and not sup_is_res[1]
+
+    signalCount += 1
+
+    strike = getStrike(close, false)
+
+    currType = "PE"
+
+    status = getStatus(currType)
+
+    countStr = getShortDate(time) + "_" + str.tostring(signalCount)
+
+
+
+    msg = buildMsg(countStr + " Break_Sup", supportLevel[1], strike, "buyPE", status)
+
+
+
+    if showIgnored or status == "Allowed"
+
+        label.new(bar_index, supportLevel[1], msg, style=label.style_label_down,            color=getColor(#e65959, status, signalCount), textcolor=color.black)
+
+
+
+    if status == "Allowed"
+
+        lastAllowedType := currType
+
+        alert('{"message":"' + msg + '"}', alert.freq_once_per_bar_close)
+
+
+
+// ✅ BREAK RES → CE
+
+if brekout_res and not res_is_sup[1]
+
+    signalCount += 1
+
+    strike = getStrike(close, true)
+
+    currType = "CE"
+
+    status = getStatus(currType)
+
+    countStr = getShortDate(time) + "_" + str.tostring(signalCount)
+
+
+
+    msg = buildMsg(countStr + " Break_Res", resistanceLevel[1], strike, "buyCE", status)
+
+
+
+    if showIgnored or status == "Allowed"
+
+        label.new(bar_index, resistanceLevel[1], msg, style=label.style_label_up,            color=getColor(#2b6d2d, status, signalCount), textcolor=color.black)
+
+
+
+    if status == "Allowed"
+
+        lastAllowedType := currType
+
+        alert('{"message":"' + msg + '"}', alert.freq_once_per_bar_close)
+
+
+
+// ✅ TEST ALERT
+
+if enableTestAlerts and (bar_index % testAlertTickGap == 0)
+
+    testMsg = "TEST_ALERT DL=" + str.tostring(dayLow) + " DH=" + str.tostring(dayHigh)
+
+    label.new(bar_index, high, testMsg, style=label.style_label_down,        color=color.orange, textcolor=color.white)
+
+    alert('{"message":"' + testMsg + '"}', alert.freq_once_per_bar)
+
