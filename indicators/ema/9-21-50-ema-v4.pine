@@ -1,0 +1,105 @@
+//@version=5
+indicator("9-21-50 EMA Strategy With SL Hit", overlay=true)
+
+ema9 = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+ema50 = ta.ema(close, 50)
+
+plot(ema9, color=color.blue, linewidth=2, title="9 EMA")
+plot(ema21, color=color.yellow, linewidth=2, title="21 EMA")
+plot(ema50, color=color.red, linewidth=2, title="50 EMA")
+
+greenCandle = close > open
+redCandle = close < open
+
+volMA = ta.sma(volume, 20)
+highVolume = volume > volMA
+
+buySignal = ta.crossover(ema9, ema21) and close > ema50 and greenCandle and highVolume
+sellSignal = ta.crossunder(ema9, ema21) and close < ema50 and redCandle and highVolume
+
+emaDiff = ema9 - ema21
+
+// =====================================================
+// STORE STOPLOSS
+// =====================================================
+
+var float activeBuySL = na
+var float activeSellSL = na
+
+// =====================================================
+// BUY SIGNAL
+// =====================================================
+
+if buySignal
+
+    activeBuySL := low
+    activeSellSL := na
+
+    buyText = "BUY | Price: " + str.tostring(close) + " | SL: " + str.tostring(activeBuySL)
+
+    label.new(bar_index, low, buyText, style=label.style_label_up, color=color.green, textcolor=color.white)
+
+    line.new(bar_index, activeBuySL, bar_index + 10, activeBuySL, color=color.red, width=2, style=line.style_dashed)
+
+// =====================================================
+// SELL SIGNAL
+// =====================================================
+
+if sellSignal
+
+    activeSellSL := high
+    activeBuySL := na
+
+    sellText = "SELL | Price: " + str.tostring(close) + " | SL: " + str.tostring(activeSellSL)
+
+    label.new(bar_index, high, sellText, style=label.style_label_down, color=color.red, textcolor=color.white)
+
+    line.new(bar_index, activeSellSL, bar_index + 10, activeSellSL, color=color.green, width=2, style=line.style_dashed)
+
+// =====================================================
+// STOPLOSS HIT CHECK
+// =====================================================
+
+buySLHit = not na(activeBuySL) and low < activeBuySL
+sellSLHit = not na(activeSellSL) and high > activeSellSL
+
+// =====================================================
+// BUY SL HIT
+// =====================================================
+
+if buySLHit
+
+    label.new(bar_index, low, "BUY SL HIT", style=label.style_label_down, color=color.red, textcolor=color.white)
+
+    activeBuySL := na
+
+// =====================================================
+// SELL SL HIT
+// =====================================================
+
+if sellSLHit
+
+    label.new(bar_index, high, "SELL SL HIT", style=label.style_label_up, color=color.green, textcolor=color.white)
+
+    activeSellSL := na
+
+// =====================================================
+// SHAPES
+// =====================================================
+
+plotshape(buySignal, title="BUY", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+
+plotshape(sellSignal, title="SELL", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+
+// =====================================================
+// ALERTS
+// =====================================================
+
+alertcondition(buySignal, title="BUY ALERT", message="BUY SIGNAL")
+
+alertcondition(sellSignal, title="SELL ALERT", message="SELL SIGNAL")
+
+alertcondition(buySLHit, title="BUY SL HIT", message="BUY STOPLOSS HIT")
+
+alertcondition(sellSLHit, title="SELL SL HIT", message="SELL STOPLOSS HIT")
