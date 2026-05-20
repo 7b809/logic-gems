@@ -1,0 +1,37 @@
+//@version=5
+indicator("9-21-50 EMA Strategy With EMA Values", overlay=true)
+
+ema9 = ta.ema(close, 9)
+ema21 = ta.ema(close, 21)
+ema50 = ta.ema(close, 50)
+
+plot(ema9, color=color.blue, linewidth=2, title="9 EMA")
+plot(ema21, color=color.yellow, linewidth=2, title="21 EMA")
+plot(ema50, color=color.red, linewidth=2, title="50 EMA")
+
+greenCandle = close > open
+redCandle = close < open
+
+volMA = ta.sma(volume, 20)
+highVolume = volume > volMA
+
+buySignal = ta.crossover(ema9, ema21) and close > ema50 and greenCandle and highVolume
+sellSignal = ta.crossunder(ema9, ema21) and close < ema50 and redCandle and highVolume
+
+emaDiff = ema9 - ema21
+
+buyText = "BUY\nPrice: " + str.tostring(close) + "\nEMA9: " + str.tostring(ema9) + "\nEMA21: " + str.tostring(ema21) + "\nEMA50: " + str.tostring(ema50) + "\nDiff: " + str.tostring(emaDiff) + "\nVol: " + str.tostring(volume) + "\nTime: " + str.tostring(hour) + ":" + str.tostring(minute)
+
+sellText = "SELL\nPrice: " + str.tostring(close) + "\nEMA9: " + str.tostring(ema9) + "\nEMA21: " + str.tostring(ema21) + "\nEMA50: " + str.tostring(ema50) + "\nDiff: " + str.tostring(emaDiff) + "\nVol: " + str.tostring(volume) + "\nTime: " + str.tostring(hour) + ":" + str.tostring(minute)
+
+plotshape(buySignal, title="BUY", location=location.belowbar, color=color.green, style=shape.labelup, text="BUY")
+plotshape(sellSignal, title="SELL", location=location.abovebar, color=color.red, style=shape.labeldown, text="SELL")
+
+if buySignal
+    label.new(bar_index, low, buyText, style=label.style_label_up, color=color.green, textcolor=color.white)
+
+if sellSignal
+    label.new(bar_index, high, sellText, style=label.style_label_down, color=color.red, textcolor=color.white)
+
+alertcondition(buySignal, title="BUY ALERT", message="BUY SIGNAL")
+alertcondition(sellSignal, title="SELL ALERT", message="SELL SIGNAL")
