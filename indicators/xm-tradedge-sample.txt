@@ -1,0 +1,286 @@
+[
+    {
+        "time": "2026-05-22T04:04:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-22T03:53:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-22T03:53:02Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-22T03:46:02Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23692.65\nSL: 23639.45\nTP1: 23745.85\nTP2: 23799\nTP3: 23852.2\"}"
+    },
+    {
+        "time": "2026-05-22T03:46:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T09:48:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T09:48:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23635\nSL: 23667.8\nTP1: 23602.2\nTP2: 23569.4\nTP3: 23536.6\"}"
+    },
+    {
+        "time": "2026-05-21T09:13:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T09:13:01Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-21T08:07:02Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23661.4\nSL: 23629.1\nTP1: 23693.7\nTP2: 23726\nTP3: 23758.3\"}"
+    },
+    {
+        "time": "2026-05-21T08:07:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T07:23:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T07:11:02Z",
+        "message": "Second Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-21T07:11:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T06:58:01Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-21T06:58:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T06:55:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23692.05\nSL: 23727.4\nTP1: 23656.7\nTP2: 23621.35\nTP3: 23586\"}"
+    },
+    {
+        "time": "2026-05-21T06:55:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T05:56:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T05:56:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23716.9\nSL: 23679.9\nTP1: 23753.9\nTP2: 23790.9\nTP3: 23827.9\"}"
+    },
+    {
+        "time": "2026-05-21T05:47:02Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-21T05:47:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T05:09:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T05:09:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23729.55\nSL: 23776.1\nTP1: 23683\nTP2: 23636.45\nTP3: 23589.9\"}"
+    },
+    {
+        "time": "2026-05-21T03:50:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-21T03:46:02Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23834.15\nSL: 23770.1\nTP1: 23898.2\nTP2: 23962.2\nTP3: 24026.25\"}"
+    },
+    {
+        "time": "2026-05-21T03:46:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T09:31:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T09:31:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23649.9\nSL: 23701.35\nTP1: 23598.45\nTP2: 23547\nTP3: 23495.5\"}"
+    },
+    {
+        "time": "2026-05-20T09:17:02Z",
+        "message": "Second Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-20T09:17:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T08:39:01Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-20T08:39:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T08:37:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T08:30:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T08:30:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23626.9\nSL: 23599.1\nTP1: 23654.7\nTP2: 23682.45\nTP3: 23710.25\"}"
+    },
+    {
+        "time": "2026-05-20T08:00:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T08:00:01Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-20T07:17:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T06:36:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T06:36:02Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23587.45\nSL: 23612.65\nTP1: 23562.25\nTP2: 23537.05\nTP3: 23511.85\"}"
+    },
+    {
+        "time": "2026-05-20T06:10:02Z",
+        "message": "Second Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-20T06:10:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T05:53:02Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-20T05:53:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T05:31:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T05:31:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23556.75\nSL: 23526.05\nTP1: 23587.45\nTP2: 23618.15\nTP3: 23648.8\"}"
+    },
+    {
+        "time": "2026-05-20T05:25:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T05:19:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T05:19:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23509.95\nSL: 23542.6\nTP1: 23477.3\nTP2: 23444.65\nTP3: 23411.95\"}"
+    },
+    {
+        "time": "2026-05-20T05:07:01Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-20T05:07:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-20T05:01:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23533.8\nSL: 23496.7\nTP1: 23570.9\nTP2: 23607.95\nTP3: 23645.05\"}"
+    },
+    {
+        "time": "2026-05-20T05:01:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T09:21:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T09:17:02Z",
+        "message": "Third Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-19T09:17:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T09:14:02Z",
+        "message": "Second Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-19T09:14:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T08:09:02Z",
+        "message": "First Target Hit on 1 TimeFrame"
+    },
+    {
+        "time": "2026-05-19T08:09:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T07:00:02Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T06:56:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T06:56:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23725.25\nSL: 23755.5\nTP1: 23695\nTP2: 23664.8\nTP3: 23634.55\"}"
+    },
+    {
+        "time": "2026-05-19T06:33:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T06:18:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23759.5\nSL: 23733.8\nTP1: 23785.2\nTP2: 23810.85\nTP3: 23836.55\"}"
+    },
+    {
+        "time": "2026-05-19T06:18:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T05:45:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T05:45:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY SELL Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23720.1\nSL: 23764\nTP1: 23676.2\nTP2: 23632.35\nTP3: 23588.45\"}"
+    },
+    {
+        "time": "2026-05-19T04:43:01Z",
+        "message": "NEW ALERT"
+    },
+    {
+        "time": "2026-05-19T04:43:01Z",
+        "message": "{\"chat_id\":\"-1002140106262\",\"text\":\"NIFTY BUY Signal Generated\nTimeFrame: 1 Minutes\nEntry: 23755.15\nSL: 23717.1\nTP1: 23793.2\nTP2: 23831.25\nTP3: 23869.3\"}"
+    }
+]
