@@ -1,0 +1,139 @@
+//@version=5
+indicator("Opening Range Historical Table V2", overlay=true)
+
+// ======================================================
+// USER INPUTS
+// ======================================================
+marketHour   = input.int(9, "Market Open Hour")
+marketMinute = input.int(15, "Market Open Minute")
+showDays     = input.int(30, "Show Days", minval=1, maxval=100)
+
+// ======================================================
+// VARIABLES
+// ======================================================
+var float firstHigh = na
+var float firstLow = na
+var float firstAvg = na
+var float resistance = na
+var float support = na
+
+var float secondHigh = na
+var float secondLow = na
+var float secondOpen = na
+var float secondClose = na
+var float secondAvg = na
+
+var table dataTable = table.new(position.top_right, 11, showDays + 1, border_width=1)
+
+// ======================================================
+// ARRAYS
+// ======================================================
+var arrDate = array.new_string()
+var arrHigh = array.new_float()
+var arrLow = array.new_float()
+var arrAvg = array.new_float()
+var arrResistance = array.new_float()
+var arrSupport = array.new_float()
+var arrSecondHigh = array.new_float()
+var arrSecondLow = array.new_float()
+var arrSecondAvg = array.new_float()
+var arrSecondOpen = array.new_float()
+var arrSecondClose = array.new_float()
+
+// ======================================================
+// FIRST CANDLE
+// ======================================================
+isFirstCandle = (hour == marketHour and minute == marketMinute)
+
+// ======================================================
+// SECOND CANDLE
+// ======================================================
+isSecondCandle = (hour == marketHour and minute == marketMinute + 1)
+
+// ======================================================
+// STORE FIRST CANDLE DATA
+// ======================================================
+if isFirstCandle
+
+    firstHigh := high
+    firstLow := low
+    firstAvg := (firstHigh + firstLow) / 2
+
+    resistance := firstHigh + (firstHigh - firstAvg)
+    support := firstLow - (firstAvg - firstLow)
+
+// ======================================================
+// STORE SECOND CANDLE DATA
+// ======================================================
+if isSecondCandle
+
+    secondHigh := high
+    secondLow := low
+    secondOpen := open
+    secondClose := close
+    secondAvg := (secondHigh + secondLow) / 2
+
+    currentDate = str.tostring(dayofmonth) + "-" + str.tostring(month) + "-" + str.tostring(year)
+
+    array.unshift(arrDate, currentDate)
+    array.unshift(arrHigh, firstHigh)
+    array.unshift(arrLow, firstLow)
+    array.unshift(arrAvg, firstAvg)
+    array.unshift(arrResistance, resistance)
+    array.unshift(arrSupport, support)
+    array.unshift(arrSecondHigh, secondHigh)
+    array.unshift(arrSecondLow, secondLow)
+    array.unshift(arrSecondAvg, secondAvg)
+    array.unshift(arrSecondOpen, secondOpen)
+    array.unshift(arrSecondClose, secondClose)
+
+    // ==================================================
+    // LIMIT ARRAY SIZE
+    // ==================================================
+    if array.size(arrDate) > showDays
+
+        array.pop(arrDate)
+        array.pop(arrHigh)
+        array.pop(arrLow)
+        array.pop(arrAvg)
+        array.pop(arrResistance)
+        array.pop(arrSupport)
+        array.pop(arrSecondHigh)
+        array.pop(arrSecondLow)
+        array.pop(arrSecondAvg)
+        array.pop(arrSecondOpen)
+        array.pop(arrSecondClose)
+
+// ======================================================
+// TABLE HEADER
+// ======================================================
+if barstate.islast
+
+    table.cell(dataTable, 0, 0, "DATE", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 1, 0, "1H", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 2, 0, "1L", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 3, 0, "1AVG", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 4, 0, "RES", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 5, 0, "SUP", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 6, 0, "2H", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 7, 0, "2L", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 8, 0, "2AVG", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 9, 0, "2OPEN", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 10, 0, "2CLOSE", bgcolor=color.black, text_color=color.white)
+
+    // ==================================================
+    // TABLE DATA
+    // ==================================================
+    for i = 0 to array.size(arrDate) - 1
+
+        table.cell(dataTable, 0, i + 1, array.get(arrDate, i), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 1, i + 1, str.tostring(array.get(arrHigh, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 2, i + 1, str.tostring(array.get(arrLow, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 3, i + 1, str.tostring(array.get(arrAvg, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 4, i + 1, str.tostring(array.get(arrResistance, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 5, i + 1, str.tostring(array.get(arrSupport, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 6, i + 1, str.tostring(array.get(arrSecondHigh, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 7, i + 1, str.tostring(array.get(arrSecondLow, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 8, i + 1, str.tostring(array.get(arrSecondAvg, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 9, i + 1, str.tostring(array.get(arrSecondOpen, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 10, i + 1, str.tostring(array.get(arrSecondClose, i)), bgcolor=color.black, text_color=color.white)
