@@ -1,5 +1,5 @@
 //@version=5
-indicator("Opening Range Historical Table V2", overlay=true)
+indicator("Opening Range Historical Table V5", overlay=true)
 
 // ======================================================
 // USER INPUTS
@@ -23,7 +23,14 @@ var float secondOpen = na
 var float secondClose = na
 var float secondAvg = na
 
-var table dataTable = table.new(position.top_right, 11, showDays + 1, border_width=1)
+var string avgBorderFlag = "FALSE"
+var string candleType = "-"
+var string avgPosition = "-"
+
+// ======================================================
+// TABLE
+// ======================================================
+var table dataTable = table.new(position.top_right, 14, showDays + 1, border_width=1)
 
 // ======================================================
 // ARRAYS
@@ -39,6 +46,9 @@ var arrSecondLow = array.new_float()
 var arrSecondAvg = array.new_float()
 var arrSecondOpen = array.new_float()
 var arrSecondClose = array.new_float()
+var arrAvgBorder = array.new_string()
+var arrCandleType = array.new_string()
+var arrAvgPosition = array.new_string()
 
 // ======================================================
 // FIRST CANDLE
@@ -73,8 +83,39 @@ if isSecondCandle
     secondClose := close
     secondAvg := (secondHigh + secondLow) / 2
 
+    // ==================================================
+    // AVG BORDER CHECK
+    // ==================================================
+    avgBorderFlag := (secondOpen <= firstAvg and secondClose >= firstAvg) or (secondOpen >= firstAvg and secondClose <= firstAvg) ? "TRUE" : "FALSE"
+
+    // ==================================================
+    // RESET VALUES
+    // ==================================================
+    candleType := "-"
+    avgPosition := "-"
+
+    // ==================================================
+    // IF AVG BORDER TRUE
+    // ==================================================
+    if avgBorderFlag == "TRUE"
+
+        candleType := secondClose > secondOpen ? "GREEN" : "RED"
+
+    // ==================================================
+    // IF AVG BORDER FALSE
+    // ==================================================
+    else
+
+        avgPosition := secondOpen > firstAvg ? "ABOVE_AVG" : "BELOW_AVG"
+
+    // ==================================================
+    // DATE
+    // ==================================================
     currentDate = str.tostring(dayofmonth) + "-" + str.tostring(month) + "-" + str.tostring(year)
 
+    // ==================================================
+    // STORE ARRAYS
+    // ==================================================
     array.unshift(arrDate, currentDate)
     array.unshift(arrHigh, firstHigh)
     array.unshift(arrLow, firstLow)
@@ -86,6 +127,9 @@ if isSecondCandle
     array.unshift(arrSecondAvg, secondAvg)
     array.unshift(arrSecondOpen, secondOpen)
     array.unshift(arrSecondClose, secondClose)
+    array.unshift(arrAvgBorder, avgBorderFlag)
+    array.unshift(arrCandleType, candleType)
+    array.unshift(arrAvgPosition, avgPosition)
 
     // ==================================================
     // LIMIT ARRAY SIZE
@@ -103,6 +147,9 @@ if isSecondCandle
         array.pop(arrSecondAvg)
         array.pop(arrSecondOpen)
         array.pop(arrSecondClose)
+        array.pop(arrAvgBorder)
+        array.pop(arrCandleType)
+        array.pop(arrAvgPosition)
 
 // ======================================================
 // TABLE HEADER
@@ -120,6 +167,9 @@ if barstate.islast
     table.cell(dataTable, 8, 0, "2AVG", bgcolor=color.black, text_color=color.white)
     table.cell(dataTable, 9, 0, "2OPEN", bgcolor=color.black, text_color=color.white)
     table.cell(dataTable, 10, 0, "2CLOSE", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 11, 0, "AVG_BORDER", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 12, 0, "CANDLE_COLOR", bgcolor=color.black, text_color=color.white)
+    table.cell(dataTable, 13, 0, "AVG_POSITION", bgcolor=color.black, text_color=color.white)
 
     // ==================================================
     // TABLE DATA
@@ -137,3 +187,6 @@ if barstate.islast
         table.cell(dataTable, 8, i + 1, str.tostring(array.get(arrSecondAvg, i)), bgcolor=color.black, text_color=color.white)
         table.cell(dataTable, 9, i + 1, str.tostring(array.get(arrSecondOpen, i)), bgcolor=color.black, text_color=color.white)
         table.cell(dataTable, 10, i + 1, str.tostring(array.get(arrSecondClose, i)), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 11, i + 1, array.get(arrAvgBorder, i), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 12, i + 1, array.get(arrCandleType, i), bgcolor=color.black, text_color=color.white)
+        table.cell(dataTable, 13, i + 1, array.get(arrAvgPosition, i), bgcolor=color.black, text_color=color.white)

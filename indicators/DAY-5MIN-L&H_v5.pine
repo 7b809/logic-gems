@@ -1,0 +1,191 @@
+//@version=5
+indicator("DAY-5MIN-L&H_v6 VALID TREND ALERT", overlay=true)
+
+// ======================================================
+// USE ONLY 1 MIN TIMEFRAME
+// ======================================================
+if timeframe.period != "1"
+    runtime.error("Use this indicator only on 1 minute timeframe")
+
+// ======================================================
+// USER INPUTS
+// ======================================================
+marketHour   = input.int(9, "Market Open Hour")
+marketMinute = input.int(15, "Market Open Minute")
+rangeCandles = input.int(1, "Opening Range Candle Count", minval=1, maxval=60)
+showDays     = input.int(30, "Show Past Days", minval=1, maxval=100)
+
+// ======================================================
+// VARIABLES
+// ======================================================
+var float rangeHigh = na
+var float rangeLow  = na
+var float rangeAvg  = na
+var int startBar    = na
+var bool signalSent = false
+
+// ======================================================
+// DETECT START CANDLE
+// ======================================================
+isStartCandle = (hour == marketHour and minute == marketMinute)
+
+// ======================================================
+// RESET DAILY VALUES
+// ======================================================
+if isStartCandle
+    rangeHigh := high
+    rangeLow := low
+    startBar := bar_index
+    signalSent := false
+
+// ======================================================
+// COLLECT OPENING RANGE
+// ======================================================
+if not na(startBar) and (bar_index - startBar <= rangeCandles - 1)
+    rangeHigh := math.max(rangeHigh, high)
+    rangeLow := math.min(rangeLow, low)
+
+// ======================================================
+// SHOW ONLY LAST X DAYS
+// ======================================================
+dayMs = 86400000
+showLine = time >= (timenow - (showDays * dayMs))
+
+// ======================================================
+// AFTER RANGE COMPLETE
+// ======================================================
+if not na(startBar) and (bar_index - startBar == rangeCandles - 1) and showLine
+
+    rangeAvg := (rangeHigh + rangeLow) / 2
+
+    // ==================================================
+    // DIFFERENCE CALCULATION
+    // ==================================================
+    highAvgDiff = math.abs(rangeHigh - rangeAvg)
+    lowAvgDiff = math.abs(rangeAvg - rangeLow)
+
+    // ==================================================
+    // ENTRY CALCULATION
+    // ==================================================
+    ceEntry = rangeHigh + highAvgDiff
+    peEntry = rangeLow - lowAvgDiff
+
+    sessionEnd = timestamp(year, month, dayofmonth, 15, 30)
+
+    // ==================================================
+    // LINES
+    // ==================================================
+    line.new(x1=time, y1=rangeHigh, x2=sessionEnd, y2=rangeHigh, xloc=xloc.bar_time, color=color.green, width=2)
+
+    line.new(x1=time, y1=rangeLow, x2=sessionEnd, y2=rangeLow, xloc=xloc.bar_time, color=color.red, width=2)
+
+    line.new(x1=time, y1=rangeAvg, x2=sessionEnd, y2=rangeAvg, xloc=xloc.bar_time, color=color.blue, width=2, style=line.style_dashed)
+
+    line.new(x1=time, y1=ceEntry, x2=sessionEnd, y2=ceEntry, xloc=xloc.bar_time, color=color.lime, width=2, style=line.style_dotted)
+
+    line.new(x1=time, y1=peEntry, x2=sessionEnd, y2=peEntry, xloc=xloc.bar_time, color=color.orange, width=2, style=line.style_dotted)
+
+    // ==================================================
+    // LABELS
+    // ==================================================
+    label.new(x=time, y=rangeHigh, xloc=xloc.bar_time, text="HIGH : " + str.tostring(rangeHigh), style=label.style_label_right, color=color.green, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=rangeLow, xloc=xloc.bar_time, text="LOW : " + str.tostring(rangeLow), style=label.style_label_right, color=color.red, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=rangeAvg, xloc=xloc.bar_time, text="AVG : " + str.tostring(rangeAvg), style=label.style_label_right, color=color.blue, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=ceEntry, xloc=xloc.bar_time, text="CE ENTRY : " + str.tostring(ceEntry), style=label.style_label_right, color=color.lime, textcolor=color.black, size=size.small)
+
+    label.new(x=time, y=peEntry, xloc=xloc.bar_time, text="PE ENTRY : " + str.tostring(peEntry), style=label.style_label_right, color=color.orange, textcolor=color.white, size=size.small)
+
+    // ==================================================
+    // OPENING RANGE ALERT
+    // ==================================================
+    openingAlert = '{"TYPE":"OPENING_RANGE","HIGH":"' + str.tostring(rangeHigh) + '","LOW":"' + str.tostring(rangeLow) + '","AVG":"' + str.tostring(rangeAvg) + '","CE_ENTRY":"' + str.tostring(ceEntry) + '","PE_ENTRY":"' + str.tostring(peEntry) + '"}'
+
+    alert(openingAlert, alert.freq_once_per_bar_close)
+
+// ======================================================
+// CONDITIONS AFTER AVG CREATED
+// ======================================================
+canCheckSignal = not na(rangeAvg) and not signalSent and not na(startBar) and (bar_index > startBar + rangeCandles - 1)
+
+// ======================================================
+// CANDLE COLOR
+// ======================================================
+isGreen = close > open
+isRed = close < open
+
+candleColor = isGreen ? "GREEN" : "RED"
+
+// ======================================================
+// VALID CONDITIONS
+// ======================================================
+// 1. OPEN BELOW AVG + GREEN = BUY CE
+// 2. OPEN ABOVE AVG + RED = BUY PE
+// ======================================================
+
+buyCE = canCheckSignal and open < rangeAvg and isGreen
+buyPE = canCheckSignal and open > rangeAvg and isRed
+
+// ======================================================
+// INVALID CONDITIONS
+// ======================================================
+// 1. OPEN BELOW AVG + RED
+// 2. OPEN ABOVE AVG + GREEN
+// ======================================================
+
+invalidBelow = canCheckSignal and open < rangeAvg and isRed
+invalidAbove = canCheckSignal and open > rangeAvg and isGreen
+
+// ======================================================
+// BUY CE SIGNAL
+// ======================================================
+if buyCE
+
+    signalSent := true
+
+    label.new(x=bar_index, y=low, text="VALID BUY CE AVG : " + str.tostring(rangeAvg), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.normal)
+
+    ceAlert = '{"TYPE":"BUY_CE","STATUS":"VALID","TIME":"' + str.tostring(time) + '","AVG":"' + str.tostring(rangeAvg) + '","OPEN":"' + str.tostring(open) + '","CLOSE":"' + str.tostring(close) + '","CANDLE_COLOR":"' + candleColor + '"}'
+
+    alert(ceAlert, alert.freq_once_per_bar_close)
+
+// ======================================================
+// BUY PE SIGNAL
+// ======================================================
+if buyPE
+
+    signalSent := true
+
+    label.new(x=bar_index, y=high, text="VALID BUY PE AVG : " + str.tostring(rangeAvg), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.normal)
+
+    peAlert = '{"TYPE":"BUY_PE","STATUS":"VALID","TIME":"' + str.tostring(time) + '","AVG":"' + str.tostring(rangeAvg) + '","OPEN":"' + str.tostring(open) + '","CLOSE":"' + str.tostring(close) + '","CANDLE_COLOR":"' + candleColor + '"}'
+
+    alert(peAlert, alert.freq_once_per_bar_close)
+
+// ======================================================
+// INVALID BELOW AVG
+// ======================================================
+if invalidBelow
+
+    signalSent := true
+
+    label.new(x=bar_index, y=low, text="NON VALID BELOW AVG", style=label.style_label_up, color=color.gray, textcolor=color.white, size=size.small)
+
+    invalidAlert1 = '{"TYPE":"NON_VALID","REASON":"OPEN_BELOW_AVG_RED_CANDLE","TIME":"' + str.tostring(time) + '","AVG":"' + str.tostring(rangeAvg) + '","OPEN":"' + str.tostring(open) + '","CLOSE":"' + str.tostring(close) + '","CANDLE_COLOR":"' + candleColor + '"}'
+
+    alert(invalidAlert1, alert.freq_once_per_bar_close)
+
+// ======================================================
+// INVALID ABOVE AVG
+// ======================================================
+if invalidAbove
+
+    signalSent := true
+
+    label.new(x=bar_index, y=high, text="NON VALID ABOVE AVG", style=label.style_label_down, color=color.gray, textcolor=color.white, size=size.small)
+
+    invalidAlert2 = '{"TYPE":"NON_VALID","REASON":"OPEN_ABOVE_AVG_GREEN_CANDLE","TIME":"' + str.tostring(time) + '","AVG":"' + str.tostring(rangeAvg) + '","OPEN":"' + str.tostring(open) + '","CLOSE":"' + str.tostring(close) + '","CANDLE_COLOR":"' + candleColor + '"}'
+
+    alert(invalidAlert2, alert.freq_once_per_bar_close)
