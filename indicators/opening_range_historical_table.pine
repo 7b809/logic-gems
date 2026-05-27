@@ -1,5 +1,5 @@
 //@version=5
-indicator("Opening Range Historical Table V5", overlay=true)
+indicator("Opening Range Historical Table V6", overlay=true)
 
 // ======================================================
 // USER INPUTS
@@ -89,24 +89,14 @@ if isSecondCandle
     avgBorderFlag := (secondOpen <= firstAvg and secondClose >= firstAvg) or (secondOpen >= firstAvg and secondClose <= firstAvg) ? "TRUE" : "FALSE"
 
     // ==================================================
-    // RESET VALUES
+    // CANDLE COLOR
     // ==================================================
-    candleType := "-"
-    avgPosition := "-"
+    candleType := secondClose > secondOpen ? "GREEN" : secondClose < secondOpen ? "RED" : "DOJI"
 
     // ==================================================
-    // IF AVG BORDER TRUE
+    // AVG POSITION FOR ALL ROWS
     // ==================================================
-    if avgBorderFlag == "TRUE"
-
-        candleType := secondClose > secondOpen ? "GREEN" : "RED"
-
-    // ==================================================
-    // IF AVG BORDER FALSE
-    // ==================================================
-    else
-
-        avgPosition := secondOpen > firstAvg ? "ABOVE_AVG" : "BELOW_AVG"
+    avgPosition := secondOpen > firstAvg ? "ABOVE_AVG" : secondOpen < firstAvg ? "BELOW_AVG" : "ON_AVG"
 
     // ==================================================
     // DATE
