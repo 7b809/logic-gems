@@ -1,0 +1,154 @@
+//@version=5
+indicator("DAY-5MIN-L&H_v10 FORMULA TOGGLE", overlay=true)
+
+// ======================================================
+// USER INPUTS
+// ======================================================
+marketHour        = input.int(9, "Market Open Hour")
+marketMinute      = input.int(15, "Market Open Minute")
+rangeCandles      = input.int(1, "Opening Range Candle Count", minval=1, maxval=60)
+showDays          = input.int(30, "Show Past Days", minval=1, maxval=100)
+showFormulaLabels = input.bool(false, "Show Formula Labels")
+
+// ======================================================
+// VARIABLES
+// ======================================================
+var float rangeHigh = na
+var float rangeLow  = na
+var float rangeAvg  = na
+var int startBar    = na
+var bool signalSent = false
+
+// ======================================================
+// DETECT START CANDLE
+// ======================================================
+isStartCandle = (hour == marketHour and minute == marketMinute)
+
+// ======================================================
+// RESET DAILY VALUES
+// ======================================================
+if isStartCandle
+    rangeHigh := high
+    rangeLow := low
+    startBar := bar_index
+    signalSent := false
+
+// ======================================================
+// COLLECT OPENING RANGE
+// ======================================================
+if not na(startBar) and (bar_index - startBar <= rangeCandles - 1)
+    rangeHigh := math.max(rangeHigh, high)
+    rangeLow := math.min(rangeLow, low)
+
+// ======================================================
+// SHOW ONLY LAST X DAYS
+// ======================================================
+dayMs = 86400000
+showLine = time >= (timenow - (showDays * dayMs))
+
+// ======================================================
+// AFTER RANGE COMPLETE
+// ======================================================
+if not na(startBar) and (bar_index - startBar == rangeCandles - 1) and showLine
+
+    // ==================================================
+    // MAIN AVERAGE LEVEL
+    // ==================================================
+    rangeAvg := (rangeHigh + rangeLow) / 2
+
+    // ==================================================
+    // DIFFERENCE VALUES
+    // ==================================================
+    highAvgDiff = math.abs(rangeHigh - rangeAvg)
+    lowAvgDiff  = math.abs(rangeAvg - rangeLow)
+
+    // ==================================================
+    // MAIN SUPPORT / RESISTANCE
+    // ==================================================
+    resistance2 = rangeHigh + highAvgDiff
+    support2    = rangeLow - lowAvgDiff
+
+    // ==================================================
+    // SUB LEVELS
+    // ==================================================
+    subResistance = rangeAvg + (highAvgDiff / 2)
+    subSupport    = rangeAvg - (lowAvgDiff / 2)
+
+    // ==================================================
+    // EXTRA OUTSIDE LEVELS
+    // ==================================================
+    resistance3 = resistance2 + highAvgDiff
+    support3    = support2 - lowAvgDiff
+
+    // ==================================================
+    // SESSION END TIME
+    // ==================================================
+    sessionEnd = timestamp(year, month, dayofmonth, 15, 30)
+
+    // ==================================================
+    // LINES
+    // ==================================================
+    line.new(x1=time, y1=rangeHigh, x2=sessionEnd, y2=rangeHigh, xloc=xloc.bar_time, color=color.green, width=2)
+
+    line.new(x1=time, y1=rangeLow, x2=sessionEnd, y2=rangeLow, xloc=xloc.bar_time, color=color.red, width=2)
+
+    line.new(x1=time, y1=rangeAvg, x2=sessionEnd, y2=rangeAvg, xloc=xloc.bar_time, color=color.blue, width=2, style=line.style_dashed)
+
+    line.new(x1=time, y1=subResistance, x2=sessionEnd, y2=subResistance, xloc=xloc.bar_time, color=color.teal, width=2, style=line.style_dotted)
+
+    line.new(x1=time, y1=subSupport, x2=sessionEnd, y2=subSupport, xloc=xloc.bar_time, color=color.maroon, width=2, style=line.style_dotted)
+
+    line.new(x1=time, y1=resistance2, x2=sessionEnd, y2=resistance2, xloc=xloc.bar_time, color=color.lime, width=2)
+
+    line.new(x1=time, y1=support2, x2=sessionEnd, y2=support2, xloc=xloc.bar_time, color=color.orange, width=2)
+
+    line.new(x1=time, y1=resistance3, x2=sessionEnd, y2=resistance3, xloc=xloc.bar_time, color=color.fuchsia, width=2, style=line.style_dashed)
+
+    line.new(x1=time, y1=support3, x2=sessionEnd, y2=support3, xloc=xloc.bar_time, color=color.yellow, width=2, style=line.style_dashed)
+
+    // ==================================================
+    // PRICE LABELS
+    // ==================================================
+    label.new(x=time, y=rangeHigh, xloc=xloc.bar_time, text="HIGH : " + str.tostring(rangeHigh), style=label.style_label_right, color=color.green, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=rangeLow, xloc=xloc.bar_time, text="LOW : " + str.tostring(rangeLow), style=label.style_label_right, color=color.red, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=rangeAvg, xloc=xloc.bar_time, text="AVG : " + str.tostring(rangeAvg), style=label.style_label_right, color=color.blue, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=subResistance, xloc=xloc.bar_time, text="SUB RESISTANCE : " + str.tostring(subResistance), style=label.style_label_right, color=color.teal, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=subSupport, xloc=xloc.bar_time, text="SUB SUPPORT : " + str.tostring(subSupport), style=label.style_label_right, color=color.maroon, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=resistance2, xloc=xloc.bar_time, text="RESISTANCE 2 : " + str.tostring(resistance2), style=label.style_label_right, color=color.lime, textcolor=color.black, size=size.small)
+
+    label.new(x=time, y=support2, xloc=xloc.bar_time, text="SUPPORT 2 : " + str.tostring(support2), style=label.style_label_right, color=color.orange, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=resistance3, xloc=xloc.bar_time, text="RESISTANCE 3 : " + str.tostring(resistance3), style=label.style_label_right, color=color.fuchsia, textcolor=color.white, size=size.small)
+
+    label.new(x=time, y=support3, xloc=xloc.bar_time, text="SUPPORT 3 : " + str.tostring(support3), style=label.style_label_right, color=color.yellow, textcolor=color.black, size=size.small)
+
+    // ==================================================
+    // FORMULA LABELS TOGGLE
+    // ==================================================
+    if showFormulaLabels
+
+        label.new(x=bar_index + 2, y=rangeAvg, text="AVG = (HIGH + LOW) / 2", style=label.style_label_left, color=color.blue, textcolor=color.white, size=size.small)
+
+        label.new(x=bar_index + 2, y=subResistance, text="SUB_RESISTANCE = AVG + ((HIGH - AVG) / 2)", style=label.style_label_left, color=color.teal, textcolor=color.white, size=size.small)
+
+        label.new(x=bar_index + 2, y=subSupport, text="SUB_SUPPORT = AVG - ((AVG - LOW) / 2)", style=label.style_label_left, color=color.maroon, textcolor=color.white, size=size.small)
+
+        label.new(x=bar_index + 2, y=resistance2, text="RESISTANCE2 = HIGH + (HIGH - AVG)", style=label.style_label_left, color=color.lime, textcolor=color.black, size=size.small)
+
+        label.new(x=bar_index + 2, y=support2, text="SUPPORT2 = LOW - (AVG - LOW)", style=label.style_label_left, color=color.orange, textcolor=color.white, size=size.small)
+
+        label.new(x=bar_index + 2, y=resistance3, text="RESISTANCE3 = RESISTANCE2 + (HIGH - AVG)", style=label.style_label_left, color=color.fuchsia, textcolor=color.white, size=size.small)
+
+        label.new(x=bar_index + 2, y=support3, text="SUPPORT3 = SUPPORT2 - (AVG - LOW)", style=label.style_label_left, color=color.yellow, textcolor=color.black, size=size.small)
+
+    // ==================================================
+    // OPENING RANGE ALERT
+    // ==================================================
+    openingAlert = '{"TYPE":"OPENING_RANGE","HIGH":"' + str.tostring(rangeHigh) + '","LOW":"' + str.tostring(rangeLow) + '","AVG":"' + str.tostring(rangeAvg) + '","SUB_RESISTANCE":"' + str.tostring(subResistance) + '","SUB_SUPPORT":"' + str.tostring(subSupport) + '","RESISTANCE2":"' + str.tostring(resistance2) + '","SUPPORT2":"' + str.tostring(support2) + '","RESISTANCE3":"' + str.tostring(resistance3) + '","SUPPORT3":"' + str.tostring(support3) + '"}'
+
+    alert(openingAlert, alert.freq_once_per_bar_close)
