@@ -1,5 +1,5 @@
 //@version=5
-indicator("DAY-5MIN-L&H_v10 FORMULA TOGGLE", overlay=true)
+indicator("OR Levels v10 FORMULA TOGGLE", overlay=true)
 
 // ======================================================
 // USER INPUTS
@@ -9,7 +9,12 @@ marketMinute      = input.int(15, "Market Open Minute")
 rangeCandles      = input.int(1, "Opening Range Candle Count", minval=1, maxval=60)
 showDays          = input.int(30, "Show Past Days", minval=1, maxval=100)
 showFormulaLabels = input.bool(false, "Show Formula Labels")
-showMetaData      = input.bool(true, "Show Support/Resistance Levels")
+
+// ✅ ONLY INDIVIDUAL TOGGLES (ALL DEFAULT OFF)
+showSubLevels = input.bool(false, "Show Sub Support/Resistance")
+showR2S2      = input.bool(false, "Show Resistance2 / Support2")
+showR3S3      = input.bool(false, "Show Resistance3 / Support3")
+showBuyLevels = input.bool(false, "Show Buy CE/PE")
 
 // ======================================================
 // VARIABLES
@@ -79,6 +84,11 @@ if not na(startBar) and (bar_index - startBar == rangeCandles - 1) and showLine
     sessionEnd = timestamp(year, month, dayofmonth, 15, 30)
 
     // ==================================================
+    // LABEL PREFIX (NEW)
+    // ==================================================
+    orPrefix = "OR(" + str.tostring(rangeCandles) + ") "
+
+    // ==================================================
     // CORE LINES (ALWAYS VISIBLE)
     // ==================================================
     line.new(time, rangeHigh, sessionEnd, rangeHigh, xloc=xloc.bar_time, color=color.green, width=2)
@@ -86,52 +96,63 @@ if not na(startBar) and (bar_index - startBar == rangeCandles - 1) and showLine
     line.new(time, rangeAvg, sessionEnd, rangeAvg, xloc=xloc.bar_time, color=color.blue, width=2, style=line.style_dashed)
 
     // ==================================================
-    // META LEVEL LINES (TOGGLE)
+    // INDIVIDUAL LEVEL LINES
     // ==================================================
-    if showMetaData
+    if showSubLevels
         line.new(time, subResistance, sessionEnd, subResistance, xloc=xloc.bar_time, color=color.teal, width=2, style=line.style_dotted)
         line.new(time, subSupport, sessionEnd, subSupport, xloc=xloc.bar_time, color=color.maroon, width=2, style=line.style_dotted)
+
+    if showR2S2
         line.new(time, resistance2, sessionEnd, resistance2, xloc=xloc.bar_time, color=color.lime, width=2)
         line.new(time, support2, sessionEnd, support2, xloc=xloc.bar_time, color=color.orange, width=2)
+
+    if showR3S3
         line.new(time, resistance3, sessionEnd, resistance3, xloc=xloc.bar_time, color=color.fuchsia, width=2, style=line.style_dashed)
         line.new(time, support3, sessionEnd, support3, xloc=xloc.bar_time, color=color.yellow, width=2, style=line.style_dashed)
 
     // ==================================================
     // CORE LABELS (ALWAYS)
     // ==================================================
-    label.new(time, rangeHigh, "HIGH : " + str.tostring(rangeHigh), xloc=xloc.bar_time, style=label.style_label_right, color=color.green, textcolor=color.white)
-    label.new(time, rangeLow, "LOW : " + str.tostring(rangeLow), xloc=xloc.bar_time, style=label.style_label_right, color=color.red, textcolor=color.white)
-    label.new(time, rangeAvg, "AVG : " + str.tostring(rangeAvg), xloc=xloc.bar_time, style=label.style_label_right, color=color.blue, textcolor=color.white)
+    label.new(time, rangeHigh, orPrefix + "HIGH : " + str.tostring(rangeHigh), xloc=xloc.bar_time, style=label.style_label_right, color=color.green, textcolor=color.white)
+    label.new(time, rangeLow, orPrefix + "LOW : " + str.tostring(rangeLow), xloc=xloc.bar_time, style=label.style_label_right, color=color.red, textcolor=color.white)
+    label.new(time, rangeAvg, orPrefix + "AVG : " + str.tostring(rangeAvg), xloc=xloc.bar_time, style=label.style_label_right, color=color.blue, textcolor=color.white)
 
     // ==================================================
-    // META LABELS (TOGGLE)
+    // INDIVIDUAL LABELS
     // ==================================================
-    if showMetaData
-        label.new(time, subResistance, "SUB RESISTANCE : " + str.tostring(subResistance), xloc=xloc.bar_time, style=label.style_label_right, color=color.teal)
-        label.new(time, subSupport, "SUB SUPPORT : " + str.tostring(subSupport), xloc=xloc.bar_time, style=label.style_label_right, color=color.maroon)
-        label.new(time, resistance2, "RESISTANCE 2 : " + str.tostring(resistance2), xloc=xloc.bar_time, style=label.style_label_right, color=color.lime)
-        label.new(time, support2, "SUPPORT 2 : " + str.tostring(support2), xloc=xloc.bar_time, style=label.style_label_right, color=color.orange)
-        label.new(time, resistance3, "RESISTANCE 3 : " + str.tostring(resistance3), xloc=xloc.bar_time, style=label.style_label_right, color=color.fuchsia)
-        label.new(time, support3, "SUPPORT 3 : " + str.tostring(support3), xloc=xloc.bar_time, style=label.style_label_right, color=color.yellow)
+    if showSubLevels
+        label.new(time, subResistance, orPrefix + "SUB RESISTANCE : " + str.tostring(subResistance), xloc=xloc.bar_time, style=label.style_label_right, color=color.teal)
+        label.new(time, subSupport, orPrefix + "SUB SUPPORT : " + str.tostring(subSupport), xloc=xloc.bar_time, style=label.style_label_right, color=color.maroon)
 
-        // BUY STRIKE LABELS
-        label.new(time, buyCE, "BUY CE : " + str.tostring(buyCE), xloc=xloc.bar_time, style=label.style_label_right, color=color.green)
-        label.new(time, buyPE, "BUY PE : " + str.tostring(buyPE), xloc=xloc.bar_time, style=label.style_label_right, color=color.red)
+    if showR2S2
+        label.new(time, resistance2, orPrefix + "RESISTANCE 2 : " + str.tostring(resistance2), xloc=xloc.bar_time, style=label.style_label_right, color=color.lime)
+        label.new(time, support2, orPrefix + "SUPPORT 2 : " + str.tostring(support2), xloc=xloc.bar_time, style=label.style_label_right, color=color.orange)
+
+    if showR3S3
+        label.new(time, resistance3, orPrefix + "RESISTANCE 3 : " + str.tostring(resistance3), xloc=xloc.bar_time, style=label.style_label_right, color=color.fuchsia)
+        label.new(time, support3, orPrefix + "SUPPORT 3 : " + str.tostring(support3), xloc=xloc.bar_time, style=label.style_label_right, color=color.yellow)
+
+    if showBuyLevels
+        label.new(time, buyCE, orPrefix + "BUY CE : " + str.tostring(buyCE), xloc=xloc.bar_time, style=label.style_label_right, color=color.green)
+        label.new(time, buyPE, orPrefix + "BUY PE : " + str.tostring(buyPE), xloc=xloc.bar_time, style=label.style_label_right, color=color.red)
 
     // ==================================================
-    // FORMULA LABELS (ONLY IF BOTH ENABLED)
+    // FORMULA LABELS
     // ==================================================
-    if showFormulaLabels and showMetaData
+    if showFormulaLabels
         label.new(bar_index + 2, rangeAvg, "AVG = (HIGH + LOW) / 2")
-        label.new(bar_index + 2, subResistance, "SUB_RES = AVG + ((HIGH - AVG)/2)")
-        label.new(bar_index + 2, subSupport, "SUB_SUP = AVG - ((AVG - LOW)/2)")
-        label.new(bar_index + 2, resistance2, "R2 = HIGH + (HIGH - AVG)")
-        label.new(bar_index + 2, support2, "S2 = LOW - (AVG - LOW)")
-        label.new(bar_index + 2, resistance3, "R3 = R2 + (HIGH - AVG)")
-        label.new(bar_index + 2, support3, "S3 = S2 - (AVG - LOW)")
+        if showSubLevels
+            label.new(bar_index + 2, subResistance, "SUB_RES = AVG + ((HIGH - AVG)/2)")
+            label.new(bar_index + 2, subSupport, "SUB_SUP = AVG - ((AVG - LOW)/2)")
+        if showR2S2
+            label.new(bar_index + 2, resistance2, "R2 = HIGH + (HIGH - AVG)")
+            label.new(bar_index + 2, support2, "S2 = LOW - (AVG - LOW)")
+        if showR3S3
+            label.new(bar_index + 2, resistance3, "R3 = R2 + (HIGH - AVG)")
+            label.new(bar_index + 2, support3, "S3 = S2 - (AVG - LOW)")
 
     // ==================================================
-    // ALERT (INCLUDES EVERYTHING ALWAYS)
+    // ALERT (UNCHANGED)
     // ==================================================
     openingAlert = '{' + '"TYPE":"OPENING_RANGE",' + '"HIGH":"' + str.tostring(rangeHigh) + '",' + '"LOW":"' + str.tostring(rangeLow) + '",' + '"AVG":"' + str.tostring(rangeAvg) + '",' + '"SUB_RESISTANCE":"' + str.tostring(subResistance) + '",' + '"SUB_SUPPORT":"' + str.tostring(subSupport) + '",' + '"RESISTANCE2":"' + str.tostring(resistance2) + '",' + '"SUPPORT2":"' + str.tostring(support2) + '",' + '"RESISTANCE3":"' + str.tostring(resistance3) + '",' + '"SUPPORT3":"' + str.tostring(support3) + '",' + '"BUY_CE":"' + str.tostring(buyCE) + '",' + '"BUY_PE":"' + str.tostring(buyPE) + '"' + '}'
 

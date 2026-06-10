@@ -1,0 +1,146 @@
+//@version=5
+indicator("Dynamic OR Historical Levels", overlay=true)
+
+//======================================================
+// USER INPUTS
+//======================================================
+targetDate = input.time(timestamp("2026-06-08 00:00 +0530"), "Select Historical Date")
+
+rangeCandles = input.int(5, "Opening Range Candles", minval=1, maxval=60)
+
+marketHour   = input.int(9, "Market Open Hour")
+marketMinute = input.int(15, "Market Open Minute")
+
+showSubLevels = input.bool(true, "Show R1/S1")
+showR2S2      = input.bool(true, "Show R2/S2")
+showR3S3      = input.bool(true, "Show R3/S3")
+showLabels    = input.bool(true, "Show Labels")
+
+//======================================================
+// DATE FILTER
+//======================================================
+selectedYear  = year(targetDate)
+selectedMonth = month(targetDate)
+selectedDay   = dayofmonth(targetDate)
+
+isTargetDay = year == selectedYear and month == selectedMonth and dayofmonth == selectedDay
+
+//======================================================
+// VARIABLES
+//======================================================
+var float rangeHigh = na
+var float rangeLow  = na
+var float rangeAvg  = na
+
+var float resistance1 = na
+var float support1    = na
+
+var float resistance2 = na
+var float support2    = na
+
+var float resistance3 = na
+var float support3    = na
+
+var int startBar = na
+
+//======================================================
+// DETECT MARKET OPEN
+//======================================================
+isStartCandle = hour == marketHour and minute == marketMinute and isTargetDay
+
+//======================================================
+// RESET VALUES
+//======================================================
+if isStartCandle
+    rangeHigh := high
+    rangeLow := low
+    startBar := bar_index
+
+//======================================================
+// BUILD OPENING RANGE
+//======================================================
+if not na(startBar) and (bar_index - startBar <= rangeCandles - 1)
+    rangeHigh := math.max(rangeHigh, high)
+    rangeLow := math.min(rangeLow, low)
+
+
+//======================================================
+// CALCULATE LEVELS
+//======================================================
+rangeCompleted = not na(startBar) and (bar_index - startBar == rangeCandles - 1)
+
+if rangeCompleted
+
+    orRange = rangeHigh - rangeLow
+    rangeAvg := (rangeHigh + rangeLow) / 2
+
+    halfRange = orRange / 4
+
+    resistance1 := rangeAvg + halfRange
+    support1 := rangeAvg - halfRange
+
+    resistance2 := rangeHigh + (orRange / 2)
+    support2 := rangeLow - (orRange / 2)
+
+    resistance3 := resistance2 + halfRange
+    support3 := support2 - halfRange
+
+    sessionEnd = timestamp(year, month, dayofmonth, 15, 30)
+
+    //==================================================
+    // MAIN LEVELS
+    //==================================================
+    line.new(time, rangeHigh, sessionEnd, rangeHigh, xloc=xloc.bar_time, color=color.green, width=2)
+
+    line.new(time, rangeLow, sessionEnd, rangeLow, xloc=xloc.bar_time, color=color.red, width=2)
+
+    line.new(time, rangeAvg, sessionEnd, rangeAvg, xloc=xloc.bar_time, color=color.blue, width=2, style=line.style_dashed)
+
+    //==================================================
+    // R1 / S1
+    //==================================================
+    if showSubLevels
+        line.new(time, resistance1, sessionEnd, resistance1, xloc=xloc.bar_time, color=color.teal, width=2, style=line.style_dotted)
+
+        line.new(time, support1, sessionEnd, support1, xloc=xloc.bar_time, color=color.maroon, width=2, style=line.style_dotted)
+
+    //==================================================
+    // R2 / S2
+    //==================================================
+    if showR2S2
+        line.new(time, resistance2, sessionEnd, resistance2, xloc=xloc.bar_time, color=color.lime, width=2)
+
+        line.new(time, support2, sessionEnd, support2, xloc=xloc.bar_time, color=color.orange, width=2)
+
+    //==================================================
+    // R3 / S3
+    //==================================================
+    if showR3S3
+        line.new(time, resistance3, sessionEnd, resistance3, xloc=xloc.bar_time, color=color.fuchsia, width=2, style=line.style_dashed)
+
+        line.new(time, support3, sessionEnd, support3, xloc=xloc.bar_time, color=color.yellow, width=2, style=line.style_dashed)
+
+    //==================================================
+    // LABELS
+    //==================================================
+    if showLabels
+
+        label.new(time, rangeHigh, "HIGH : " + str.tostring(rangeHigh), xloc=xloc.bar_time, style=label.style_label_right, color=color.green, textcolor=color.white)
+
+        label.new(time, rangeLow, "LOW : " + str.tostring(rangeLow), xloc=xloc.bar_time, style=label.style_label_right, color=color.red, textcolor=color.white)
+
+        label.new(time, rangeAvg, "AVG : " + str.tostring(rangeAvg), xloc=xloc.bar_time, style=label.style_label_right, color=color.blue, textcolor=color.white)
+
+        if showSubLevels
+            label.new(time, resistance1, "R1 : " + str.tostring(resistance1), xloc=xloc.bar_time, style=label.style_label_right, color=color.teal)
+
+            label.new(time, support1, "S1 : " + str.tostring(support1), xloc=xloc.bar_time, style=label.style_label_right, color=color.maroon)
+
+        if showR2S2
+            label.new(time, resistance2, "R2 : " + str.tostring(resistance2), xloc=xloc.bar_time, style=label.style_label_right, color=color.lime)
+
+            label.new(time, support2, "S2 : " + str.tostring(support2), xloc=xloc.bar_time, style=label.style_label_right, color=color.orange)
+
+        if showR3S3
+            label.new(time, resistance3, "R3 : " + str.tostring(resistance3), xloc=xloc.bar_time, style=label.style_label_right, color=color.fuchsia)
+
