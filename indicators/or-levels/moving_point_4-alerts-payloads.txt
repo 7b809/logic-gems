@@ -1,0 +1,147 @@
+TRADINGVIEW ALERT PAYLOAD SAMPLES
+=================================
+
+1. OPENING_RANGE ALERT
+----------------------
+{
+  "TYPE":"OPENING_RANGE",
+  "TICKER":"NIFTY",
+  "SYMBOL":"NIFTY",
+  "HIGH":"24125.30",
+  "LOW":"24085.50",
+  "AVG":"24105.40",
+  "SUB_RESISTANCE":"24115.35",
+  "SUB_SUPPORT":"24095.45",
+  "RESISTANCE2":"24145.20",
+  "SUPPORT2":"24065.60",
+  "RESISTANCE3":"24165.10",
+  "SUPPORT3":"24045.70",
+  "RESISTANCE3_CE_STRIKE":"24150",
+  "RESISTANCE3_PE_STRIKE":"24200",
+  "SUPPORT3_CE_STRIKE":"24000",
+  "SUPPORT3_PE_STRIKE":"24050",
+  "BUY_CE":"24150",
+  "BUY_PE":"24050"
+}
+
+2. INDEX BUY_CE ALERT
+---------------------
+{
+  "ALERT_SOURCE":"INDEX",
+  "ALERT_CATEGORY":"INDEX",
+  "TYPE":"BUY_CE",
+  "TICKER":"NIFTY",
+  "SYMBOL":"NIFTY",
+  "DATE":"21-06-2026",
+  "TIME":"10:15:24",
+  "TF":"5",
+  "PRICE":"24210.40",
+  "EMA9":"24205.30",
+  "EMA21":"24198.15",
+  "DIFF":"7.15",
+  "EMA_LEVEL_INFO":{
+    "EMA9_TO_R3":"40.20",
+    "EMA9_TO_S3":"160.20",
+    "EMA21_TO_R3":"33.05",
+    "EMA21_TO_S3":"153.05",
+    "EMA9_R3_POSITION":"ABOVE_R3",
+    "EMA9_S3_POSITION":"ABOVE_S3",
+    "EMA21_R3_POSITION":"ABOVE_R3",
+    "EMA21_S3_POSITION":"ABOVE_S3",
+    "CROSS_TO_R3":"45.00",
+    "CROSS_TO_S3":"165.00",
+    "CROSS_R3_POSITION":"ABOVE_R3",
+    "CROSS_S3_POSITION":"ABOVE_S3",
+    "NEAREST_OR_LEVEL":"R3",
+    "NEAREST_DISTANCE":"45.00"
+  },
+  "OPENING_RANGE":{
+    "HIGH":"24125.30",
+    "LOW":"24085.50",
+    "AVG":"24105.40",
+    "SUB_RESISTANCE":"24115.35",
+    "SUB_SUPPORT":"24095.45",
+    "RESISTANCE2":"24145.20",
+    "SUPPORT2":"24065.60",
+    "RESISTANCE3":"24165.10",
+    "SUPPORT3":"24045.70",
+    "BUY_CE":"24150",
+    "BUY_PE":"24050"
+  }
+}
+
+3. INDEX SELL_CE ALERT
+----------------------
+Same as INDEX BUY_CE payload, only TYPE changes to SELL_CE.
+
+4. INDEX BUY_PE ALERT
+---------------------
+Same as INDEX BUY_CE payload, only TYPE changes to BUY_PE.
+
+5. INDEX SELL_PE ALERT
+----------------------
+Same as INDEX BUY_CE payload, only TYPE changes to SELL_PE.
+
+6. OPTION ALERT TEMPLATE (Used by all 16 Option Variants)
+---------------------------------------------------------
+{
+  "ALERT_SOURCE":"OPTION",
+  "ALERT_CATEGORY":"R3_CE_OPTION",
+  "TYPE":"BUY_CE",
+  "TICKER":"NSE:NIFTY260623C24150",
+  "SYMBOL":"NIFTY",
+  "DATE":"21-06-2026",
+  "TIME":"10:32:15",
+  "TF":"5",
+  "PRICE":"142.20",
+  "EMA9":"138.65",
+  "EMA21":"133.20",
+  "DIFF":"5.45",
+  "EMA_LEVEL_INFO":{
+    "EMA9_TO_R3":"12.30",
+    "EMA9_TO_S3":"52.30",
+    "EMA21_TO_R3":"6.85",
+    "EMA21_TO_S3":"46.85",
+    "EMA9_R3_POSITION":"ABOVE_R3",
+    "EMA9_S3_POSITION":"ABOVE_S3",
+    "EMA21_R3_POSITION":"ABOVE_R3",
+    "EMA21_S3_POSITION":"ABOVE_S3",
+    "NEAREST_OR_LEVEL":"R3",
+    "NEAREST_DISTANCE":"4.50"
+  },
+  "OPTION_OPENING_RANGE":{
+    "HIGH":"120.50",
+    "LOW":"100.50",
+    "AVG":"110.50",
+    "SUB_RESISTANCE":"115.50",
+    "SUB_SUPPORT":"105.50",
+    "RESISTANCE2":"130.50",
+    "SUPPORT2":"90.50",
+    "RESISTANCE3":"140.50",
+    "SUPPORT3":"80.50"
+  }
+}
+
+OPTION VARIANTS
+---------------
+R3_CE_OPTION  - BUY_CE
+R3_CE_OPTION  - SELL_CE
+R3_CE_OPTION  - BUY_PE
+R3_CE_OPTION  - SELL_PE
+
+R3_PE_OPTION  - BUY_CE
+R3_PE_OPTION  - SELL_CE
+R3_PE_OPTION  - BUY_PE
+R3_PE_OPTION  - SELL_PE
+
+S3_CE_OPTION  - BUY_CE
+S3_CE_OPTION  - SELL_CE
+S3_CE_OPTION  - BUY_PE
+S3_CE_OPTION  - SELL_PE
+
+S3_PE_OPTION  - BUY_CE
+S3_PE_OPTION  - SELL_CE
+S3_PE_OPTION  - BUY_PE
+S3_PE_OPTION  - SELL_PE
+
+For each option variant, change ALERT_CATEGORY and TYPE only. All nested payload sections remain identical in structure.
