@@ -1,8 +1,15 @@
-TRADINGVIEW ALERT PAYLOAD SAMPLES
-=================================
+================================================
+UPDATED TRADINGVIEW ALERT PAYLOAD SPECIFICATION
+================================================
 
-1. OPENING_RANGE ALERT
-----------------------
+[*] DYNAMIC ROUNDING RULES APPLIED:
+   - LIVE_MAIN_LTP: Real-time 'close' of the underlying main chart.
+   - LIVE_CE_STRIKE: math.floor(close / 50) * 50 (Rounded down to the nearest 50 multiple)
+   - LIVE_PE_STRIKE: math.ceil(close / 50) * 50 (Rounded up to the nearest 50 multiple)
+
+------------------------------------------------
+1. OPENING_RANGE ALERT TEMPLATE
+------------------------------------------------
 {
   "TYPE":"OPENING_RANGE",
   "TICKER":"NIFTY",
@@ -24,8 +31,9 @@ TRADINGVIEW ALERT PAYLOAD SAMPLES
   "BUY_PE":"24050"
 }
 
-2. INDEX BUY_CE ALERT
----------------------
+------------------------------------------------
+2. INDEX ALERT TEMPLATE (WITH DYNAMIC LTP STRIKES)
+------------------------------------------------
 {
   "ALERT_SOURCE":"INDEX",
   "ALERT_CATEGORY":"INDEX",
@@ -39,6 +47,9 @@ TRADINGVIEW ALERT PAYLOAD SAMPLES
   "EMA9":"24205.30",
   "EMA21":"24198.15",
   "DIFF":"7.15",
+  "LIVE_MAIN_LTP":"24210.40",
+  "LIVE_CE_STRIKE":"24200",
+  "LIVE_PE_STRIKE":"24250",
   "EMA_LEVEL_INFO":{
     "EMA9_TO_R3":"40.20",
     "EMA9_TO_S3":"160.20",
@@ -70,20 +81,15 @@ TRADINGVIEW ALERT PAYLOAD SAMPLES
   }
 }
 
-3. INDEX SELL_CE ALERT
-----------------------
-Same as INDEX BUY_CE payload, only TYPE changes to SELL_CE.
+[+] INDEX VARIANTS (Only "TYPE" mutates across these structures):
+   - TYPE: "BUY_CE"
+   - TYPE: "SELL_CE"
+   - TYPE: "BUY_PE"
+   - TYPE: "SELL_PE"
 
-4. INDEX BUY_PE ALERT
----------------------
-Same as INDEX BUY_CE payload, only TYPE changes to BUY_PE.
-
-5. INDEX SELL_PE ALERT
-----------------------
-Same as INDEX BUY_CE payload, only TYPE changes to SELL_PE.
-
-6. OPTION ALERT TEMPLATE (Used by all 16 Option Variants)
----------------------------------------------------------
+------------------------------------------------
+3. OPTION ALERT TEMPLATE (WITH DYNAMIC LTP STRIKES)
+------------------------------------------------
 {
   "ALERT_SOURCE":"OPTION",
   "ALERT_CATEGORY":"R3_CE_OPTION",
@@ -97,6 +103,9 @@ Same as INDEX BUY_CE payload, only TYPE changes to SELL_PE.
   "EMA9":"138.65",
   "EMA21":"133.20",
   "DIFF":"5.45",
+  "LIVE_MAIN_LTP":"24132.80",
+  "LIVE_CE_STRIKE":"24100",
+  "LIVE_PE_STRIKE":"24150",
   "EMA_LEVEL_INFO":{
     "EMA9_TO_R3":"12.30",
     "EMA9_TO_S3":"52.30",
@@ -122,26 +131,25 @@ Same as INDEX BUY_CE payload, only TYPE changes to SELL_PE.
   }
 }
 
-OPTION VARIANTS
----------------
-R3_CE_OPTION  - BUY_CE
-R3_CE_OPTION  - SELL_CE
-R3_CE_OPTION  - BUY_PE
-R3_CE_OPTION  - SELL_PE
+[+] THE 16 OPTION MATRIX COMBINATIONS:
+   (Modify "ALERT_CATEGORY" and "TYPE" on the base Option template above)
 
-R3_PE_OPTION  - BUY_CE
-R3_PE_OPTION  - SELL_CE
-R3_PE_OPTION  - BUY_PE
-R3_PE_OPTION  - SELL_PE
+   1. "ALERT_CATEGORY":"R3_CE_OPTION", "TYPE":"BUY_CE"
+   2. "ALERT_CATEGORY":"R3_CE_OPTION", "TYPE":"SELL_CE"
+   3. "ALERT_CATEGORY":"R3_CE_OPTION", "TYPE":"BUY_PE"
+   4. "ALERT_CATEGORY":"R3_CE_OPTION", "TYPE":"SELL_PE"
 
-S3_CE_OPTION  - BUY_CE
-S3_CE_OPTION  - SELL_CE
-S3_CE_OPTION  - BUY_PE
-S3_CE_OPTION  - SELL_PE
+   5. "ALERT_CATEGORY":"R3_PE_OPTION", "TYPE":"BUY_CE"
+   6. "ALERT_CATEGORY":"R3_PE_OPTION", "TYPE":"SELL_CE"
+   7. "ALERT_CATEGORY":"R3_PE_OPTION", "TYPE":"BUY_PE"
+   8. "ALERT_CATEGORY":"R3_PE_OPTION", "TYPE":"SELL_PE"
 
-S3_PE_OPTION  - BUY_CE
-S3_PE_OPTION  - SELL_CE
-S3_PE_OPTION  - BUY_PE
-S3_PE_OPTION  - SELL_PE
+   9. "ALERT_CATEGORY":"S3_CE_OPTION", "TYPE":"BUY_CE"
+  10. "ALERT_CATEGORY":"S3_CE_OPTION", "TYPE":"SELL_CE"
+  11. "ALERT_CATEGORY":"S3_CE_OPTION", "TYPE":"BUY_PE"
+  12. "ALERT_CATEGORY":"S3_CE_OPTION", "TYPE":"SELL_PE"
 
-For each option variant, change ALERT_CATEGORY and TYPE only. All nested payload sections remain identical in structure.
+  13. "ALERT_CATEGORY":"S3_PE_OPTION", "TYPE":"BUY_CE"
+  14. "ALERT_CATEGORY":"S3_PE_OPTION", "TYPE":"SELL_CE"
+  15. "ALERT_CATEGORY":"S3_PE_OPTION", "TYPE":"BUY_PE"
+  16. "ALERT_CATEGORY":"S3_PE_OPTION", "TYPE":"SELL_PE"
