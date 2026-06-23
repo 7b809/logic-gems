@@ -23,9 +23,9 @@ showBuyLevels = input.bool(false, "Show Buy CE/PE")
 // ======================================================
 // OPTION SYMBOL INPUTS
 // ======================================================
-r3CeSymbol = input.symbol("NSE:NIFTY260623C24150", "R3 CE TradingView Symbol")
-r3PeSymbol = input.symbol("NSE:NIFTY260623P24200", "R3 PE TradingView Symbol")
-s3CeSymbol = input.symbol("NSE:NIFTY260623C24100", "S3 CE TradingView Symbol")
+r3CeSymbol = input.symbol("NSE:NIFTY260623C24100", "R3 CE TradingView Symbol")
+r3PeSymbol = input.symbol("NSE:NIFTY260623P24150", "R3 PE TradingView Symbol")
+s3CeSymbol = input.symbol("NSE:NIFTY260623C24000", "S3 CE TradingView Symbol")
 s3PeSymbol = input.symbol("NSE:NIFTY260623P24050", "S3 PE TradingView Symbol")
 
 // ======================================================
