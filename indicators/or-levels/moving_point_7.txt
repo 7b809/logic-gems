@@ -1,0 +1,773 @@
+//@version=5
+indicator("OR Levels + EMA Cross Integrated (Option Levels Focus)", overlay=true)
+
+// ======================================================
+// USER INPUTS - OPENING RANGE
+// ======================================================
+marketHour         = input.int(9, "Market Open Hour")
+marketMinute      = input.int(15, "Market Open Minute")
+rangeCandles      = input.int(1, "Opening Range Candle Count", minval=1, maxval=60)
+showDays          = input.int(30, "Show Past Days", minval=1, maxval=100)
+showFormulaLabels = input.bool(false, "Show Formula Labels")
+showEMALabels     = input.bool(false, "Show EMA Cross Labels")
+isIndexChart      = input.bool(true, "Index Chart (NIFTY/SENSEX)")
+alertSymbol       = input.string("NIFTY", "Alert Symbol / Custom Ticket Name")
+showTable         = input.bool(true, "Show Table", group="Display Settings")
+
+// INDIVIDUAL TOGGLES (ALL DEFAULT OFF)
+showSubLevels = input.bool(false, "Show Sub Support/Resistance")
+showR2S2      = input.bool(false, "Show Resistance2 / Support2")
+showR3S3      = input.bool(false, "Show Resistance3 / Support3")
+showBuyLevels = input.bool(false, "Show Buy CE/PE")
+
+// ======================================================
+// OPTION SYMBOL INPUTS
+// ======================================================
+r3CeSymbol = input.symbol("NSE:NIFTY260630C23850", "R3 CE TradingView Symbol")
+r3PeSymbol = input.symbol("NSE:NIFTY260630P23900", "R3 PE TradingView Symbol")
+s3CeSymbol = input.symbol("NSE:NIFTY260630C23700", "S3 CE TradingView Symbol")
+s3PeSymbol = input.symbol("NSE:NIFTY260630P23750", "S3 PE TradingView Symbol")
+// ======================================================
+// USER INPUTS - EMA
+// ======================================================
+ema9Length  = input.int(9, "Fast EMA Length")
+ema21Length = input.int(21, "Slow EMA Length")
+
+// ======================================================
+// VARIABLES & INITIALIZATIONS
+// ======================================================
+var float rangeHigh = na
+var float rangeLow  = na
+var float rangeAvg  = na
+var int startBar    = na
+
+var float subResistance = na
+var float subSupport = na
+var float resistance2 = na
+var float support2 = na
+var float resistance3 = na
+var float support3 = na
+
+var float buyCE = na
+var float buyPE = na
+
+var float resistance3CEStrike = na
+var float resistance3PEStrike = na
+var float support3CEStrike = na
+var float support3PEStrike = na
+
+var float optR3CeH = na
+var float optR3CeL = na
+var float optR3PeH = na
+var float optR3PeL = na
+var float optS3CeH = na
+var float optS3CeL = na
+var float optS3PeH = na
+var float optS3PeL = na
+
+var bool resistance3TouchedToday = false
+var bool support3TouchedToday = false
+
+var bool buyCEAlertSentToday = false
+var bool sellCEAlertSentToday = false
+var bool buyPEAlertSentToday = false
+var bool sellPEAlertSentToday = false
+
+var string r3CeCrossTime = "--"
+var string r3PeCrossTime = "--"
+var string s3CeCrossTime = "--"
+var string s3PeCrossTime = "--"
+
+// --- PERSISTENT LOGIC TRACKING VARIATIONS FOR OPTION SPECIFIC CROSSOVERS ---
+var bool r3Ce_R3Crossed = false
+var bool r3Ce_S3Crossed = false
+var string r3Ce_R3CrossTime = "--"
+var string r3Ce_S3CrossTime = "--"
+
+var bool r3Pe_R3Crossed = false
+var bool r3Pe_S3Crossed = false
+var string r3Pe_R3CrossTime = "--"
+var string r3Pe_S3CrossTime = "--"
+
+var bool s3Ce_R3Crossed = false
+var bool s3Ce_S3Crossed = false
+var string s3Ce_R3CrossTime = "--"
+var string s3Ce_S3CrossTime = "--"
+
+var bool s3Pe_R3Crossed = false
+var bool s3Pe_S3Crossed = false
+var string s3Pe_R3CrossTime = "--"
+var string s3Pe_S3CrossTime = "--"
+
+// --- LEVEL TOUCH TRACKING FLAGS FOR INDIVIDUAL OPTIONS ---
+var bool r3Ce_R3Touched = false
+var bool r3Ce_S3Touched = false
+var bool r3Pe_R3Touched = false
+var bool r3Pe_S3Touched = false
+var bool s3Ce_R3Touched = false
+var bool s3Ce_S3Touched = false
+var bool s3Pe_R3Touched = false
+var bool s3Pe_S3Touched = false
+
+
+var string r3CeEmaHistory = ""
+var string r3PeEmaHistory = ""
+var string s3CeEmaHistory = ""
+var string s3PeEmaHistory = ""
+
+// ✅ Threshold tracking
+var float r3Threshold = na
+var float s3Threshold = na
+
+var bool r3ThresholdTouched = false
+var bool s3ThresholdTouched = false
+
+var bool r3CeAlertSent = false
+var bool r3PeAlertSent = false
+var bool s3CeAlertSent = false
+var bool s3PeAlertSent = false
+
+
+// TABLE Setup
+var table optionTable = table.new(position.bottom_right, 12, 5, border_width = 1)
+
+// ======================================================
+// SECURITY REQUESTS & CORE DATA FETCHING
+// ======================================================
+r3CeHigh = request.security(r3CeSymbol, timeframe.period, high, ignore_invalid_symbol=true)
+r3CeLow  = request.security(r3CeSymbol, timeframe.period, low, ignore_invalid_symbol=true)
+r3CeLtp  = request.security(r3CeSymbol, timeframe.period, close, ignore_invalid_symbol = true)
+
+r3PeHigh = request.security(r3PeSymbol, timeframe.period, high, ignore_invalid_symbol=true)
+r3PeLow  = request.security(r3PeSymbol, timeframe.period, low, ignore_invalid_symbol=true)
+r3PeLtp  = request.security(r3PeSymbol, timeframe.period, close, ignore_invalid_symbol = true)
+
+s3CeHigh = request.security(s3CeSymbol, timeframe.period, high, ignore_invalid_symbol=true)
+s3CeLow  = request.security(s3CeSymbol, timeframe.period, low, ignore_invalid_symbol=true)
+s3CeLtp  = request.security(s3CeSymbol, timeframe.period, close, ignore_invalid_symbol = true)
+
+s3PeHigh = request.security(s3PeSymbol, timeframe.period, high, ignore_invalid_symbol=true)
+s3PeLow  = request.security(s3PeSymbol, timeframe.period, low, ignore_invalid_symbol=true)
+s3PeLtp  = request.security(s3PeSymbol, timeframe.period, close, ignore_invalid_symbol = true)
+
+// Fetch Option EMAs
+r3CeEma9  = request.security(r3CeSymbol, timeframe.period, ta.ema(close, ema9Length), ignore_invalid_symbol=true)
+r3CeEma21 = request.security(r3CeSymbol, timeframe.period, ta.ema(close, ema21Length), ignore_invalid_symbol=true)
+
+r3PeEma9  = request.security(r3PeSymbol, timeframe.period, ta.ema(close, ema9Length), ignore_invalid_symbol=true)
+r3PeEma21 = request.security(r3PeSymbol, timeframe.period, ta.ema(close, ema21Length), ignore_invalid_symbol=true)
+
+s3CeEma9  = request.security(s3CeSymbol, timeframe.period, ta.ema(close, ema9Length), ignore_invalid_symbol=true)
+s3CeEma21 = request.security(s3CeSymbol, timeframe.period, ta.ema(close, ema21Length), ignore_invalid_symbol=true)
+
+s3PeEma9  = request.security(s3PeSymbol, timeframe.period, ta.ema(close, ema9Length), ignore_invalid_symbol=true)
+s3PeEma21 = request.security(s3PeSymbol, timeframe.period, ta.ema(close, ema21Length), ignore_invalid_symbol=true)
+
+
+// Main Chart EMA Calculations
+ema9  = ta.ema(close, ema9Length)
+ema21 = ta.ema(close, ema21Length)
+
+// EMA Distance From OR Levels
+
+ema9ToR3  = not na(resistance3) ? ema9 - resistance3 : na
+ema9ToS3  = not na(support3) ? ema9 - support3 : na
+
+ema21ToR3 = not na(resistance3) ? ema21 - resistance3 : na
+ema21ToS3 = not na(support3) ? ema21 - support3 : na
+
+// EMA Position Relative To Levels
+
+ema9R3Pos = ema9ToR3 > 0 ? "ABOVE_R3" : ema9ToR3 < 0 ? "BELOW_R3" : "AT_R3"
+
+ema9S3Pos = ema9ToS3 > 0 ? "ABOVE_S3" : ema9ToS3 < 0 ? "BELOW_S3" : "AT_S3"
+
+ema21R3Pos = ema21ToR3 > 0 ? "ABOVE_R3" : ema21ToR3 < 0 ? "BELOW_R3" : "AT_R3"
+
+ema21S3Pos = ema21ToS3 > 0 ? "ABOVE_S3" : ema21ToS3 < 0 ? "BELOW_S3" : "AT_S3"
+
+// EMA Distance From OR Levels
+
+
+r3CeBull = r3CeEma9 > r3CeEma21
+r3PeBull = r3PeEma9 > r3PeEma21
+s3CeBull = s3CeEma9 > s3CeEma21
+s3PeBull = s3PeEma9 > s3PeEma21
+
+r3CeTrend = r3CeBull ? "BULL" : "BEAR"
+r3PeTrend = r3PeBull ? "BULL" : "BEAR"
+s3CeTrend = s3CeBull ? "BULL" : "BEAR"
+s3PeTrend = s3PeBull ? "BULL" : "BEAR"
+
+// Main Chart Plots
+plot(ema9, title="9 EMA", linewidth=2, color=color.green)
+plot(ema21, title="21 EMA", linewidth=2, color=color.red)
+
+bullCross = ta.crossover(ema9, ema21)
+bearCross = ta.crossunder(ema9, ema21)
+
+// Distance Of Cross From R3/S3
+
+crossToR3 = not na(resistance3) ? close - resistance3 : na
+crossToS3 = not na(support3) ? close - support3 : na
+
+crossR3Position =     crossToR3 > 0 ? "ABOVE_R3" : crossToR3 < 0 ? "BELOW_R3" : "AT_R3"
+
+crossS3Position =     crossToS3 > 0 ? "ABOVE_S3" : crossToS3 < 0 ? "BELOW_S3" : "AT_S3"
+
+// Safe Text Values For JSON
+
+ema9ToR3Text  = na(ema9ToR3)  ? "N/A" : str.tostring(ema9ToR3, "#.##")
+ema9ToS3Text  = na(ema9ToS3)  ? "N/A" : str.tostring(ema9ToS3, "#.##")
+
+ema21ToR3Text = na(ema21ToR3) ? "N/A" : str.tostring(ema21ToR3, "#.##")
+ema21ToS3Text = na(ema21ToS3) ? "N/A" : str.tostring(ema21ToS3, "#.##")
+
+crossToR3Text = na(crossToR3) ? "N/A" : str.tostring(crossToR3, "#.##")
+crossToS3Text = na(crossToS3) ? "N/A" : str.tostring(crossToS3, "#.##")
+
+nearestLevel = na(resistance3) or na(support3) ? "N/A"    : math.abs(close - resistance3) < math.abs(close - support3)        ? "R3"        : "S3"
+
+nearestDistance = na(resistance3) or na(support3) ? na    : math.min(math.abs(close - resistance3), math.abs(close - support3))
+
+nearestDistanceText = na(nearestDistance) ? "N/A"    : str.tostring(nearestDistance, "#.##")
+
+plotshape(bullCross, title="Bullish Cross", location=location.belowbar, style=shape.triangleup, color=color.green, size=size.small)
+plotshape(bearCross, title="Bearish Cross", location=location.abovebar, style=shape.triangledown, color=color.red, size=size.small)
+
+// IST Time Calculations
+istHour   = hour(time, "Asia/Kolkata")
+istMin    = minute(time, "Asia/Kolkata")
+istSec    = second(time, "Asia/Kolkata")
+istTime   = str.tostring(istHour, "00") + ":" + str.tostring(istMin, "00") + ":" + str.tostring(istSec, "00")
+istDate   = str.tostring(dayofmonth(time, "Asia/Kolkata"), "00") + "-" + str.tostring(month(time, "Asia/Kolkata"), "00") + "-" + str.tostring(year(time, "Asia/Kolkata"))
+tf        = timeframe.period
+emaDiff   = math.abs(ema9 - ema21)
+
+// ======================================================
+// RUNTIME PROCESSING LOGIC
+// ======================================================
+isStartCandle = (hour == marketHour and minute == marketMinute)
+
+// Check local contract crossovers
+r3CeBullCross = ta.crossover(r3CeEma9, r3CeEma21), s3CeBullCross = ta.crossover(s3CeEma9, s3CeEma21)
+r3CeBearCross = ta.crossunder(r3CeEma9, r3CeEma21), s3CeBearCross = ta.crossunder(s3CeEma9, s3CeEma21)
+r3PeBullCross = ta.crossover(r3PeEma9, r3PeEma21), s3PeBullCross = ta.crossover(s3PeEma9, s3PeEma21)
+r3PeBearCross = ta.crossunder(r3PeEma9, r3PeEma21), s3PeBearCross = ta.crossunder(s3PeEma9, s3PeEma21)
+
+if r3CeBullCross or r3CeBearCross
+    r3CeCrossTime := istTime
+
+    if r3CeBullCross
+        r3CeEmaHistory := r3CeEmaHistory + (r3CeEmaHistory == "" ? "" : " | ") + istTime + ":BULL:" + str.tostring(r3CeEma9, "#.##") + ":" + str.tostring(r3CeEma21, "#.##")
+
+    if r3CeBearCross
+        r3CeEmaHistory := r3CeEmaHistory + (r3CeEmaHistory == "" ? "" : " | ") + istTime + ":BEAR:" + str.tostring(r3CeEma9, "#.##") + ":" + str.tostring(r3CeEma21, "#.##")
+        
+
+if r3PeBullCross
+    r3PeCrossTime := istTime
+    r3PeEmaHistory := r3PeEmaHistory + (r3PeEmaHistory == "" ? "" : " | ") + istTime + ":BULL:" + str.tostring(r3PeEma9, "#.##") + ":" + str.tostring(r3PeEma21, "#.##")
+
+if r3PeBearCross
+    r3PeCrossTime := istTime
+    r3PeEmaHistory := r3PeEmaHistory + (r3PeEmaHistory == "" ? "" : " | ") + istTime + ":BEAR:" + str.tostring(r3PeEma9, "#.##") + ":" + str.tostring(r3PeEma21, "#.##")
+
+
+if s3CeBullCross
+    s3CeCrossTime := istTime
+    s3CeEmaHistory := s3CeEmaHistory + (s3CeEmaHistory == "" ? "" : " | ") + istTime + ":BULL:" + str.tostring(s3CeEma9, "#.##") + ":" + str.tostring(s3CeEma21, "#.##")
+
+if s3CeBearCross
+    s3CeCrossTime := istTime
+    s3CeEmaHistory := s3CeEmaHistory + (s3CeEmaHistory == "" ? "" : " | ") + istTime + ":BEAR:" + str.tostring(s3CeEma9, "#.##") + ":" + str.tostring(s3CeEma21, "#.##")
+
+
+if s3PeBullCross
+    s3PeCrossTime := istTime
+    s3PeEmaHistory := s3PeEmaHistory + (s3PeEmaHistory == "" ? "" : " | ") + istTime + ":BULL:" + str.tostring(s3PeEma9, "#.##") + ":" + str.tostring(s3PeEma21, "#.##")
+
+if s3PeBearCross
+    s3PeCrossTime := istTime
+    s3PeEmaHistory := s3PeEmaHistory + (s3PeEmaHistory == "" ? "" : " | ") + istTime + ":BEAR:" + str.tostring(s3PeEma9, "#.##") + ":" + str.tostring(s3PeEma21, "#.##")
+
+
+
+// RESET DAILY VALUES AT OPEN
+if isStartCandle
+    rangeHigh := high
+    rangeLow := low
+    startBar := bar_index
+
+    resistance3TouchedToday := false
+    support3TouchedToday := false
+
+    buyCEAlertSentToday := false
+    sellCEAlertSentToday := false
+    buyPEAlertSentToday := false
+    sellPEAlertSentToday := false
+
+    r3Ce_R3Crossed := false, r3Ce_S3Crossed := false
+    r3Ce_R3CrossTime := "--", r3Ce_S3CrossTime := "--"
+    r3Pe_R3Crossed := false, r3Pe_S3Crossed := false
+    r3Pe_R3CrossTime := "--", r3Pe_S3CrossTime := "--"
+    s3Ce_R3Crossed := false, s3Ce_S3Crossed := false
+    s3Ce_R3CrossTime := "--", s3Ce_S3CrossTime := "--"
+    s3Pe_R3Crossed := false, s3Pe_S3Crossed := false
+    s3Pe_R3CrossTime := "--", s3Pe_S3CrossTime := "--"
+
+    r3Ce_R3Touched := false, r3Ce_S3Touched := false
+    r3Pe_R3Touched := false, r3Pe_S3Touched := false
+    s3Ce_R3Touched := false, s3Ce_S3Touched := false
+    s3Pe_R3Touched := false, s3Pe_S3Touched := false
+
+    optR3CeH := na, optR3CeL := na
+    optR3PeH := na, optR3PeL := na
+    optS3CeH := na, optS3CeL := na
+    optS3PeH := na, optS3PeL := na
+
+    r3CeEmaHistory := ""
+    r3PeEmaHistory := ""
+    s3CeEmaHistory := ""
+    s3PeEmaHistory := ""
+
+    r3ThresholdTouched := false
+    s3ThresholdTouched := false
+
+    r3CeAlertSent := false
+    r3PeAlertSent := false
+    s3CeAlertSent := false
+    s3PeAlertSent := false
+
+// COLLECT OPENING RANGE DATA
+if not na(startBar) and (bar_index - startBar <= rangeCandles - 1)
+    rangeHigh := math.max(rangeHigh, high)
+    rangeLow  := math.min(rangeLow, low)
+
+    optR3CeH := na(optR3CeH) ? r3CeHigh : math.max(optR3CeH, r3CeHigh)
+    optR3CeL := na(optR3CeL) ? r3CeLow  : math.min(optR3CeL, r3CeLow)
+
+    optR3PeH := na(optR3PeH) ? r3PeHigh : math.max(optR3PeH, r3PeHigh)
+    optR3PeL := na(optR3PeL) ? r3PeLow  : math.min(optR3PeL, r3PeLow)
+
+    optS3CeH := na(optS3CeH) ? s3CeHigh : math.max(optS3CeH, s3CeHigh)
+    optS3CeL := na(optS3CeL) ? s3CeLow  : math.min(optS3CeL, s3CeLow)
+
+    optS3PeH := na(optS3PeH) ? s3PeHigh : math.max(optS3PeH, s3PeHigh)
+    optS3PeL := na(optS3PeL) ? s3PeLow  : math.min(optS3PeL, s3PeLow)
+
+dayMs    = 86400000
+showLine = time >= (timenow - (showDays * dayMs))
+
+// ============================================================
+// COMPUTE LEVEL MATH FOR OPTIONS
+// ============================================================
+getOptionR3(sHigh, sLow) =>
+    sAvg = (sHigh + sLow) / 2
+    sR2  = sHigh + math.abs(sHigh - sAvg)
+    sR3  = sR2 + math.abs(sHigh - sAvg)
+    sR3
+
+getOptionS3(sHigh, sLow) =>
+    sAvg = (sHigh + sLow) / 2
+    sS2  = sLow - math.abs(sAvg - sLow)
+    sS3  = sS2 - math.abs(sAvg - sLow)
+    sS3
+
+r3Ce_OptionR3 = getOptionR3(optR3CeH, optR3CeL)
+r3Ce_OptionS3 = getOptionS3(optR3CeH, optR3CeL)
+
+r3Pe_OptionR3 = getOptionR3(optR3PeH, optR3PeL)
+r3Pe_OptionS3 = getOptionS3(optR3PeH, optR3PeL)
+
+s3Ce_OptionR3 = getOptionR3(optS3CeH, optS3CeL)
+s3Ce_OptionS3 = getOptionS3(optS3CeH, optS3CeL)
+
+s3Pe_OptionR3 = getOptionR3(optS3PeH, optS3PeL)
+s3Pe_OptionS3 = getOptionS3(optS3PeH, optS3PeL)
+
+// ============================================================
+// REALTIME CROSSOVER VALIDATION
+// ============================================================
+orComplete = not na(startBar) and (bar_index - startBar >= rangeCandles)
+
+if orComplete
+    // R3 CE Verification
+    if not na(r3Ce_OptionR3) and r3CeHigh >= r3Ce_OptionR3
+        r3Ce_R3Touched := true
+    if not na(r3Ce_OptionR3) and not r3Ce_R3Crossed and r3CeLtp >= r3Ce_OptionR3
+        r3Ce_R3Crossed := true
+        r3Ce_R3CrossTime := istTime
+    if not na(r3Ce_OptionS3) and r3CeLow <= r3Ce_OptionS3
+        r3Ce_S3Touched := true
+    if not na(r3Ce_OptionS3) and not r3Ce_S3Crossed and r3CeLtp <= r3Ce_OptionS3
+        r3Ce_S3Crossed := true
+        r3Ce_S3CrossTime := istTime
+
+    // R3 PE Verification
+    if not na(r3Pe_OptionR3) and r3PeHigh >= r3Pe_OptionR3
+        r3Pe_R3Touched := true
+    if not na(r3Pe_OptionR3) and not r3Pe_R3Crossed and r3PeLtp >= r3Pe_OptionR3
+        r3Pe_R3Crossed := true
+        r3Pe_R3CrossTime := istTime
+    if not na(r3Pe_OptionS3) and r3PeLow <= r3Pe_OptionS3
+        r3Pe_S3Touched := true
+    if not na(r3Pe_OptionS3) and not r3Pe_S3Crossed and r3PeLtp <= r3Pe_OptionS3
+        r3Pe_S3Crossed := true
+        r3Pe_S3CrossTime := istTime
+
+    // S3 CE Verification (Fixed Typos Here)
+    if not na(s3Ce_OptionR3) and s3CeHigh >= s3Ce_OptionR3
+        s3Ce_R3Touched := true
+    if not na(s3Ce_OptionR3) and not s3Ce_R3Crossed and s3CeLtp >= s3Ce_OptionR3
+        s3Ce_R3Crossed := true
+        s3Ce_R3CrossTime := istTime
+    if not na(s3Ce_OptionS3) and s3CeLow <= s3Ce_OptionS3
+        s3Ce_S3Touched := true
+    if not na(s3Ce_OptionS3) and not s3Ce_S3Crossed and s3CeLtp <= s3Ce_OptionS3
+        s3Ce_S3Crossed := true
+        s3Ce_S3CrossTime := istTime
+
+    // S3 PE Verification
+    if not na(s3Pe_OptionR3) and s3PeHigh >= s3Pe_OptionR3
+        s3Pe_R3Touched := true
+    if not na(s3Pe_OptionR3) and not s3Pe_R3Crossed and s3PeLtp >= s3Pe_OptionR3
+        s3Pe_R3Crossed := true
+        s3Pe_R3CrossTime := istTime
+    if not na(s3Pe_OptionS3) and s3PeLow <= s3Pe_OptionS3
+        s3Pe_S3Touched := true
+    if not na(s3Pe_OptionS3) and not s3Pe_S3Crossed and s3PeLtp <= s3Pe_OptionS3
+        s3Pe_S3Crossed := true
+        s3Pe_S3CrossTime := istTime
+
+// ======================================================
+// VISUALS & CORE INDEX CALCULATIONS
+// ======================================================
+if not na(startBar) and (bar_index - startBar == rangeCandles - 1) and showLine
+    rangeAvg    := (rangeHigh + rangeLow) / 2
+    highAvgDiff = math.abs(rangeHigh - rangeAvg)
+    lowAvgDiff  = math.abs(rangeAvg - rangeLow)
+
+    resistance2 := rangeHigh + highAvgDiff
+    support2    := rangeLow - lowAvgDiff
+
+    subResistance := rangeAvg + (highAvgDiff / 2)
+    subSupport    := rangeAvg - (lowAvgDiff / 2)
+
+    resistance3 := resistance2 + highAvgDiff
+    support3    := support2 - lowAvgDiff
+
+    // ✅ CORRECT PLACE FOR THRESHOLD
+    r3Threshold := (resistance2 + resistance3) / 2
+    s3Threshold := (support2 + support3) / 2
+
+    buyCE := math.floor(resistance3 / 50) * 50
+    buyPE := math.ceil(support3 / 50) * 50
+
+    resistance3CEStrike := math.floor(resistance3 / 50) * 50
+    resistance3PEStrike := math.ceil(resistance3 / 50) * 50
+
+    support3CEStrike := math.floor(support3 / 50) * 50
+    support3PEStrike := math.ceil(support3 / 50) * 50
+
+    sessionEnd = timestamp(year, month, dayofmonth, 15, 30)
+    orPrefix   = "OR(" + str.tostring(rangeCandles) + ") "
+
+    line.new(time, rangeHigh, sessionEnd, rangeHigh, xloc=xloc.bar_time, color=color.green, width=2)
+    line.new(time, rangeLow, sessionEnd, rangeLow, xloc=xloc.bar_time, color=color.red, width=2)
+    line.new(time, rangeAvg, sessionEnd, rangeAvg, xloc=xloc.bar_time, color=color.blue, width=2, style=line.style_dashed)
+
+    if showSubLevels
+        line.new(time, subResistance, sessionEnd, subResistance, xloc=xloc.bar_time, color=color.teal, width=2, style=line.style_dotted)
+        line.new(time, subSupport, sessionEnd, subSupport, xloc=xloc.bar_time, color=color.maroon, width=2, style=line.style_dotted)
+
+    if showR2S2
+        line.new(time, resistance2, sessionEnd, resistance2, xloc=xloc.bar_time, color=color.lime, width=2)
+        line.new(time, support2, sessionEnd, support2, xloc=xloc.bar_time, color=color.orange, width=2)
+
+    if showR3S3
+        line.new(time, resistance3, sessionEnd, resistance3, xloc=xloc.bar_time, color=color.fuchsia, width=2, style=line.style_dashed)
+        line.new(time, support3, sessionEnd, support3, xloc=xloc.bar_time, color=color.yellow, width=2, style=line.style_dashed)
+
+    label.new(time, rangeHigh, orPrefix + "HIGH : " + str.tostring(rangeHigh), xloc=xloc.bar_time, style=label.style_label_right, color=color.green, textcolor=color.white)
+    label.new(time, rangeLow, orPrefix + "LOW : " + str.tostring(rangeLow), xloc=xloc.bar_time, style=label.style_label_right, color=color.red, textcolor=color.white)
+    label.new(time, rangeAvg, orPrefix + "AVG : " + str.tostring(rangeAvg), xloc=xloc.bar_time, style=label.style_label_right, color=color.blue, textcolor=color.white)
+
+    if showSubLevels
+        label.new(time, subResistance, orPrefix + "SUB RESISTANCE : " + str.tostring(subResistance), xloc=xloc.bar_time, style=label.style_label_right, color=color.teal)
+        label.new(time, subSupport, orPrefix + "SUB SUPPORT : " + str.tostring(subSupport), xloc=xloc.bar_time, style=label.style_label_right, color=color.maroon)
+
+    if showR2S2
+        label.new(time, resistance2, orPrefix + "RESISTANCE 2 : " + str.tostring(resistance2), xloc=xloc.bar_time, style=label.style_label_right, color=color.lime)
+        label.new(time, support2, orPrefix + "SUPPORT 2 : " + str.tostring(support2), xloc=xloc.bar_time, style=label.style_label_right, color=color.orange)
+
+    if showR3S3
+        label.new(time, resistance3, orPrefix + "RESISTANCE 3 : " + str.tostring(resistance3), xloc=xloc.bar_time, style=label.style_label_right, color=color.fuchsia)
+        label.new(time, support3, orPrefix + "SUPPORT 3 : " + str.tostring(support3), xloc=xloc.bar_time, style=label.style_label_right, color=color.yellow)
+
+    if showBuyLevels
+        label.new(time, buyCE, orPrefix + "BUY CE : " + str.tostring(buyCE), xloc=xloc.bar_time, style=label.style_label_right, color=color.green)
+        label.new(time, buyPE, orPrefix + "BUY PE : " + str.tostring(buyPE), xloc=xloc.bar_time, style=label.style_label_right, color=color.red)
+
+    if showFormulaLabels
+        label.new(bar_index + 2, rangeAvg, "AVG = (HIGH + LOW) / 2")
+        if showSubLevels
+            label.new(bar_index + 2, subResistance, "SUB_RES = AVG + ((HIGH - AVG)/2)")
+            label.new(bar_index + 2, subSupport, "SUB_SUP = AVG - ((AVG - LOW)/2)")
+        if showR2S2
+            label.new(bar_index + 2, resistance2, "R2 = HIGH + (HIGH - AVG)")
+            label.new(bar_index + 2, support2, "S2 = LOW - (AVG - LOW)")
+        if showR3S3
+            label.new(bar_index + 2, resistance3, "R3 = R2 + (HIGH - AVG)")
+            label.new(bar_index + 2, support3, "S3 = S2 - (AVG - LOW)")
+
+    isRealTimeBar = (time >= timenow - 300000)
+    string openingAlert = ""
+
+    if barstate.isconfirmed and isRealTimeBar
+        if isIndexChart
+            openingAlert := '{"TYPE":"OPENING_RANGE","TICKER":"' + syminfo.ticker + '","SYMBOL":"' + alertSymbol + '","HIGH":"' + str.tostring(rangeHigh) + '","LOW":"' + str.tostring(rangeLow) + '","AVG":"' + str.tostring(rangeAvg) + '","SUB_RESISTANCE":"' + str.tostring(subResistance) + '","SUB_SUPPORT":"' + str.tostring(subSupport) + '","RESISTANCE2":"' + str.tostring(resistance2) + '","SUPPORT2":"' + str.tostring(support2) + '","RESISTANCE3":"' + str.tostring(resistance3) + '","SUPPORT3":"' + str.tostring(support3) + '","RESISTANCE3_CE_STRIKE":"' + str.tostring(resistance3CEStrike) + '","RESISTANCE3_PE_STRIKE":"' + str.tostring(resistance3PEStrike) + '","SUPPORT3_CE_STRIKE":"' + str.tostring(support3CEStrike) + '","SUPPORT3_PE_STRIKE":"' + str.tostring(support3PEStrike) + '","BUY_CE":"' + str.tostring(buyCE) + '","BUY_PE":"' + str.tostring(buyPE) + '"}'
+        else
+            openingAlert := '{"TYPE":"OPENING_RANGE","TICKER":"' + syminfo.ticker + '","SYMBOL":"' + alertSymbol + '","HIGH":"' + str.tostring(rangeHigh) + '","LOW":"' + str.tostring(rangeLow) + '","AVG":"' + str.tostring(rangeAvg) + '","SUB_RESISTANCE":"' + str.tostring(subResistance) + '","SUB_SUPPORT":"' + str.tostring(subSupport) + '","RESISTANCE2":"' + str.tostring(resistance2) + '","SUPPORT2":"' + str.tostring(support2) + '","RESISTANCE3":"' + str.tostring(resistance3) + '","SUPPORT3":"' + str.tostring(support3) + '"}'
+        alert(openingAlert, alert.freq_once_per_bar_close)
+
+// ✅ Independent threshold detection
+if not na(r3Threshold) and not r3ThresholdTouched and high >= r3Threshold
+    r3ThresholdTouched := true
+
+if not na(s3Threshold) and not s3ThresholdTouched and low <= s3Threshold
+    s3ThresholdTouched := true
+
+// Existing level tracking (keep if needed)
+if not na(resistance3) and high >= resistance3
+    resistance3TouchedToday := true
+
+
+
+if not na(support3) and low <= support3
+    support3TouchedToday := true        
+
+// ======================================================
+// MAIN CHART EMA ALERT LOGIC
+// ======================================================
+if bullCross and showEMALabels
+    label.new(bar_index, low, "🟢 BULL EMA CROSS\nTicker : " + syminfo.ticker + "\nSymbol : " + alertSymbol + "\nDate : " + istDate + "\nTime : " + istTime + " IST\nTF : " + tf + "\nPrice : " + str.tostring(close, "#.##") + "\nEMA9 : " + str.tostring(ema9, "#.##") + "\nEMA21 : " + str.tostring(ema21, "#.##") + "\nDiff : " + str.tostring(emaDiff, "#.##"), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+
+if bearCross and showEMALabels
+    label.new(bar_index, high, "🔴 BEAR EMA CROSS\nTicker : " + syminfo.ticker + "\nSymbol : " + alertSymbol + "\nDate : " + istDate + "\nTime : " + istTime + " IST\nTF : " + tf + "\nPrice : " + str.tostring(close, "#.##") + "\nEMA9 : " + str.tostring(ema9, "#.##") + "\nEMA21 : " + str.tostring(ema21, "#.##") + "\nDiff : " + str.tostring(emaDiff, "#.##"), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+
+
+// ==============================================================================
+// UPDATED PAYLOAD GENERATORS WITH LIVE MAIN CHART LTP & DYNAMIC STRIKES
+// ==============================================================================
+
+getJsonPayload(string alertSource, string alertCategory, string aType, string ticker, float prc, float e9, float e21) =>
+    // Dynamic live strike calculations from main chart's close
+    liveLtpCeStrike = math.floor(close / 50) * 50
+    liveLtpPeStrike = math.ceil(close / 50) * 50
+
+    '{"ALERT_SOURCE":"' + alertSource + '","ALERT_CATEGORY":"' + alertCategory + '","TYPE":"' + aType + '","TICKER":"' + ticker + '","SYMBOL":"' + alertSymbol + '","DATE":"' + istDate + '","TIME":"' + istTime + '","TF":"' + tf + '","PRICE":"' + str.tostring(prc, "#.##") + '","EMA9":"' + str.tostring(e9, "#.##") + '","EMA21":"' + str.tostring(e21, "#.##") + '","DIFF":"' + str.tostring(math.abs(e9 - e21), "#.##") + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","LIVE_CE_STRIKE":"' + str.tostring(liveLtpCeStrike) + '","LIVE_PE_STRIKE":"' + str.tostring(liveLtpPeStrike) + '","EMA_LEVEL_INFO":{"EMA9_TO_R3":"' + ema9ToR3Text + '","EMA9_TO_S3":"' + ema9ToS3Text + '","EMA21_TO_R3":"' + ema21ToR3Text + '","EMA21_TO_S3":"' + ema21ToS3Text + '","EMA9_R3_POSITION":"' + ema9R3Pos + '","EMA9_S3_POSITION":"' + ema9S3Pos + '","EMA21_R3_POSITION":"' + ema21R3Pos + '","EMA21_S3_POSITION":"' + ema21S3Pos + '","CROSS_TO_R3":"' + crossToR3Text + '","CROSS_TO_S3":"' + crossToS3Text + '","CROSS_R3_POSITION":"' + crossR3Position + '","CROSS_S3_POSITION":"' + crossS3Position + '","NEAREST_OR_LEVEL":"' + nearestLevel + '","NEAREST_DISTANCE":"' + nearestDistanceText + '"},"OPENING_RANGE":{"HIGH":"' + str.tostring(rangeHigh) + '","LOW":"' + str.tostring(rangeLow) + '","AVG":"' + str.tostring(rangeAvg) + '","SUB_RESISTANCE":"' + str.tostring(subResistance) + '","SUB_SUPPORT":"' + str.tostring(subSupport) + '","RESISTANCE2":"' + str.tostring(resistance2) + '","SUPPORT2":"' + str.tostring(support2) + '","RESISTANCE3":"' + str.tostring(resistance3) + '","SUPPORT3":"' + str.tostring(support3) + '","RESISTANCE3_CE_STRIKE":"' + str.tostring(resistance3CEStrike) + '","RESISTANCE3_PE_STRIKE":"' + str.tostring(resistance3PEStrike) + '","SUPPORT3_CE_STRIKE":"' + str.tostring(support3CEStrike) + '","SUPPORT3_PE_STRIKE":"' + str.tostring(support3PEStrike) + '","BUY_CE":"' + str.tostring(buyCE) + '","BUY_PE":"' + str.tostring(buyPE) + '"}}'
+
+getOptionJsonPayload(string alertCategory, string aType, string ticker, float prc, float e9, float e21, float optHigh, float optLow, float optR3, float optS3, string emaHistory) =>
+    optAvg = (optHigh + optLow) / 2
+    highAvgDiff = math.abs(optHigh - optAvg)
+    lowAvgDiff = math.abs(optAvg - optLow)
+    optR2 = optHigh + highAvgDiff
+    optS2 = optLow - lowAvgDiff
+    optSubRes = optAvg + (highAvgDiff / 2)
+    optSubSup = optAvg - (lowAvgDiff / 2)
+    ema9ToOptR3 = e9 - optR3
+    ema9ToOptS3 = e9 - optS3
+    ema21ToOptR3 = e21 - optR3
+    ema21ToOptS3 = e21 - optS3
+    ema9ToOptR3Text = na(ema9ToOptR3) ? "N/A" : str.tostring(ema9ToOptR3, "#.##")
+    ema9ToOptS3Text = na(ema9ToOptS3) ? "N/A" : str.tostring(ema9ToOptS3, "#.##")
+    ema21ToOptR3Text = na(ema21ToOptR3) ? "N/A" : str.tostring(ema21ToOptR3, "#.##")
+    ema21ToOptS3Text = na(ema21ToOptS3) ? "N/A" : str.tostring(ema21ToOptS3, "#.##")
+    ema9OptR3Pos = ema9ToOptR3 > 0 ? "ABOVE_R3" : ema9ToOptR3 < 0 ? "BELOW_R3" : "AT_R3"
+    ema9OptS3Pos = ema9ToOptS3 > 0 ? "ABOVE_S3" : ema9ToOptS3 < 0 ? "BELOW_S3" : "AT_S3"
+    ema21OptR3Pos = ema21ToOptR3 > 0 ? "ABOVE_R3" : ema21ToOptR3 < 0 ? "BELOW_R3" : "AT_R3"
+    ema21OptS3Pos = ema21ToOptS3 > 0 ? "ABOVE_S3" : ema21ToOptS3 < 0 ? "BELOW_S3" : "AT_S3"
+    nearestOptLevel = math.abs(prc - optR3) < math.abs(prc - optS3) ? "R3" : "S3"
+    nearestOptDistance = str.tostring(math.min(math.abs(prc - optR3), math.abs(prc - optS3)), "#.##")
+    
+    // Dynamic live strike calculations from main chart's close
+    liveLtpCeStrike = math.floor(close / 50) * 50
+    liveLtpPeStrike = math.ceil(close / 50) * 50
+
+    // Dynamic Suggested Strike Logic (Based on 9 EMA vs 21 EMA Trend)
+    isBullish = e9 > e21
+    
+    // Suggested 50 Interval Strike
+    sStrike50 = isBullish ? math.floor(close / 50) * 50 : math.ceil(close / 50) * 50
+    sStrike50Suffix = isBullish ? "CE" : "PE"
+    suggestedStrike50Text = str.tostring(sStrike50) + sStrike50Suffix
+
+    // Suggested 100 Interval Strike
+    sStrike100 = isBullish ? math.floor(close / 100) * 100 : math.ceil(close / 100) * 100
+    sStrike100Suffix = isBullish ? "CE" : "PE"
+    suggestedStrike100Text = str.tostring(sStrike100) + sStrike100Suffix
+
+    '{"ALERT_SOURCE":"OPTION","ALERT_CATEGORY":"' + alertCategory + '","TYPE":"' + aType + '","TICKER":"' + ticker + '","SYMBOL":"' + alertSymbol + '","DATE":"' + istDate + '","TIME":"' + istTime + '","TF":"' + tf + '","PRICE":"' + str.tostring(prc, "#.##") + '","EMA9":"' + str.tostring(e9, "#.##") + '","EMA21":"' + str.tostring(e21, "#.##") + '","DIFF":"' + str.tostring(math.abs(e9 - e21), "#.##") + '","EMA_CROSS_HISTORY":"' + emaHistory + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","LIVE_CE_STRIKE":"' + str.tostring(liveLtpCeStrike) + '","LIVE_PE_STRIKE":"' + str.tostring(liveLtpPeStrike) + '","SUGGESTED_STRIKE":{"STRIKE_50":"' + suggestedStrike50Text + '","STRIKE_100":"' + suggestedStrike100Text + '"},"EMA_LEVEL_INFO":{"EMA9_TO_R3":"' + ema9ToOptR3Text + '","EMA9_TO_S3":"' + ema9ToOptS3Text + '","EMA21_TO_R3":"' + ema21ToOptR3Text + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","EMA21_TO_S3":"' + ema21ToOptS3Text + '","EMA9_R3_POSITION":"' + ema9OptR3Pos + '","EMA9_S3_POSITION":"' + ema9OptS3Pos + '","EMA21_R3_POSITION":"' + ema21OptR3Pos + '","EMA21_S3_POSITION":"' + ema21OptS3Pos + '","NEAREST_OR_LEVEL":"' + nearestOptLevel + '","NEAREST_DISTANCE":"' + nearestOptDistance + '"},"OPTION_OPENING_RANGE":{"HIGH":"' + str.tostring(optHigh) + '","LOW":"' + str.tostring(optLow) + '","AVG":"' + str.tostring(optAvg) + '","SUB_RESISTANCE":"' + str.tostring(optSubRes) + '","SUB_SUPPORT":"' + str.tostring(optSubSup) + '","RESISTANCE2":"' + str.tostring(optR2) + '","SUPPORT2":"' + str.tostring(optS2) + '","RESISTANCE3":"' + str.tostring(optR3) + '","SUPPORT3":"' + str.tostring(optS3) + '"}}'    
+
+if bullCross and s3ThresholdTouched and not sellPEAlertSentToday
+    alert(getJsonPayload("INDEX", "INDEX", "SELL_PE", syminfo.ticker, close, ema9, ema21), alert.freq_once_per_bar_close)
+    sellPEAlertSentToday := true
+
+if bearCross and s3ThresholdTouched and not buyPEAlertSentToday
+    alert(getJsonPayload("INDEX", "INDEX", "BUY_PE", syminfo.ticker, close, ema9, ema21), alert.freq_once_per_bar_close)
+    buyPEAlertSentToday := true
+
+if bearCross and r3ThresholdTouched and not sellCEAlertSentToday
+    alert(getJsonPayload("INDEX", "INDEX", "SELL_CE", syminfo.ticker, close, ema9, ema21), alert.freq_once_per_bar_close)
+    sellCEAlertSentToday := true
+
+if bullCross and r3ThresholdTouched and not buyCEAlertSentToday
+    alert(getJsonPayload("INDEX", "INDEX", "BUY_CE", syminfo.ticker, close, ema9, ema21), alert.freq_once_per_bar_close)
+    buyCEAlertSentToday := true
+
+// ======================================================
+// INTERNALLY MANAGED OPTION CONTRACT ALERTS LOGIC
+// ======================================================
+if barstate.isconfirmed and orComplete
+
+    // --------------------------------------------------
+    // 1. R3 CE Alerts Logic Block (BULL SIDE)
+    // --------------------------------------------------
+    if r3ThresholdTouched and not r3CeAlertSent
+        if r3CeBullCross
+            alert(getOptionJsonPayload("R3_CE_OPTION", "BUY_CE", r3CeSymbol, r3CeLtp, r3CeEma9, r3CeEma21, optR3CeH, optR3CeL, r3Ce_OptionR3, r3Ce_OptionS3, r3CeEmaHistory), alert.freq_once_per_bar_close)
+            r3CeAlertSent := true
+
+        if r3CeBearCross
+            alert(getOptionJsonPayload("R3_CE_OPTION", "BUY_PE", r3CeSymbol, r3CeLtp, r3CeEma9, r3CeEma21, optR3CeH, optR3CeL, r3Ce_OptionR3, r3Ce_OptionS3, r3CeEmaHistory), alert.freq_once_per_bar_close)
+            r3CeAlertSent := true
+
+
+    // --------------------------------------------------
+    // 2. R3 PE Alerts Logic Block (BEAR SIDE)
+    // --------------------------------------------------
+    if s3ThresholdTouched and not r3PeAlertSent
+        if r3PeBullCross
+            alert(getOptionJsonPayload("R3_PE_OPTION", "BUY_CE", r3PeSymbol, r3PeLtp, r3PeEma9, r3PeEma21, optR3PeH, optR3PeL, r3Pe_OptionR3, r3Pe_OptionS3, r3PeEmaHistory), alert.freq_once_per_bar_close)
+            r3PeAlertSent := true
+
+        if r3PeBearCross
+            alert(getOptionJsonPayload("R3_PE_OPTION", "BUY_PE", r3PeSymbol, r3PeLtp, r3PeEma9, r3PeEma21, optR3PeH, optR3PeL, r3Pe_OptionR3, r3Pe_OptionS3, r3PeEmaHistory), alert.freq_once_per_bar_close)
+            r3PeAlertSent := true
+
+
+    // --------------------------------------------------
+    // 3. S3 CE Alerts Logic Block (BULL SIDE)
+    // --------------------------------------------------
+    if r3ThresholdTouched and not s3CeAlertSent
+        if s3CeBullCross
+            alert(getOptionJsonPayload("S3_CE_OPTION", "BUY_CE", s3CeSymbol, s3CeLtp, s3CeEma9, s3CeEma21, optS3CeH, optS3CeL, s3Ce_OptionR3, s3Ce_OptionS3, s3CeEmaHistory), alert.freq_once_per_bar_close)
+            s3CeAlertSent := true
+
+        if s3CeBearCross
+            alert(getOptionJsonPayload("S3_CE_OPTION", "BUY_PE", s3CeSymbol, s3CeLtp, s3CeEma9, s3CeEma21, optS3CeH, optS3CeL, s3Ce_OptionR3, s3Ce_OptionS3, s3CeEmaHistory), alert.freq_once_per_bar_close)
+            s3CeAlertSent := true
+
+
+    // --------------------------------------------------
+    // 4. S3 PE Alerts Logic Block (BEAR SIDE)
+    // --------------------------------------------------
+    if s3ThresholdTouched and not s3PeAlertSent
+        if s3PeBullCross
+            alert(getOptionJsonPayload("S3_PE_OPTION", "BUY_CE", s3PeSymbol, s3PeLtp, s3PeEma9, s3PeEma21, optS3PeH, optS3PeL, s3Pe_OptionR3, s3Pe_OptionS3, s3PeEmaHistory), alert.freq_once_per_bar_close)
+            s3PeAlertSent := true
+
+        if s3PeBearCross
+            alert(getOptionJsonPayload("S3_PE_OPTION", "BUY_PE", s3PeSymbol, s3PeLtp, s3PeEma9, s3PeEma21, optS3PeH, optS3PeL, s3Pe_OptionR3, s3Pe_OptionS3, s3PeEmaHistory), alert.freq_once_per_bar_close)
+            s3PeAlertSent := true      
+
+// ======================================================
+// RENDER UI ELEMENT (TABLE GENERATION)
+// ======================================================
+if barstate.islast and isIndexChart and showTable
+    // Headers Setup
+    table.cell(optionTable, 0, 0, "LEVEL",           bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 1, 0, "STRIKE",          bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 2, 0, "OPT RES 3",      bgcolor=color.purple, text_color=color.white) 
+    table.cell(optionTable, 3, 0, "OPT SUP 3",      bgcolor=color.purple, text_color=color.white) 
+    table.cell(optionTable, 4, 0, "CROSS STATUS",   bgcolor=color.navy, text_color=color.white) 
+    table.cell(optionTable, 5, 0, "LEVEL CROSS TIME",bgcolor=color.navy, text_color=color.white) 
+    table.cell(optionTable, 6, 0, "TV SYMBOL",       bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 7, 0, "LTP",            bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 8, 0, "EMA9",           bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 9, 0, "EMA21",          bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 10, 0, "TREND",         bgcolor=color.blue, text_color=color.white)
+    table.cell(optionTable, 11, 0, "EMA CROSS TIME",bgcolor=color.blue, text_color=color.white)
+
+    // ROW 1: R3 CE
+    r3CeCrossStr = (r3Ce_R3Crossed ? "R3 Crossed" : "") + (r3Ce_R3Crossed and r3Ce_S3Crossed ? " / " : "") + (r3Ce_S3Crossed ? "S3 Crossed" : "")
+    r3CeCrossStr := r3CeCrossStr == "" ? "No Cross" : r3CeCrossStr
+    r3CeTimeStr  = "R3: " + r3Ce_R3CrossTime + "\nS3: " + r3Ce_S3CrossTime
+
+    table.cell(optionTable, 0, 1, "R3 CE")
+    table.cell(optionTable, 1, 1, str.tostring(int(resistance3CEStrike)))
+    table.cell(optionTable, 2, 1, str.tostring(r3Ce_OptionR3, "#.##"))
+    table.cell(optionTable, 3, 1, str.tostring(r3Ce_OptionS3, "#.##"))
+    table.cell(optionTable, 4, 1, r3CeCrossStr, bgcolor=r3Ce_R3Crossed ? color.new(color.green, 80) : color.new(color.gray, 90))
+    table.cell(optionTable, 5, 1, r3CeTimeStr)
+    table.cell(optionTable, 6, 1, r3CeSymbol)
+    table.cell(optionTable, 7, 1, na(r3CeLtp) ? "N/A" : str.tostring(r3CeLtp, "#.##"))
+    table.cell(optionTable, 8, 1, str.tostring(r3CeEma9, "#.##"))
+    table.cell(optionTable, 9, 1, str.tostring(r3CeEma21, "#.##"))
+    table.cell(optionTable, 10, 1, r3CeTrend, text_color = r3CeBull ? color.green : color.red)
+    table.cell(optionTable, 11, 1, r3CeCrossTime)
+
+    // ROW 2: R3 PE
+    r3PeCrossStr = (r3Pe_R3Crossed ? "R3 Crossed" : "") + (r3Pe_R3Crossed and r3Pe_S3Crossed ? " / " : "") + (r3Pe_S3Crossed ? "S3 Crossed" : "")
+    r3PeCrossStr := r3PeCrossStr == "" ? "No Cross" : r3PeCrossStr
+    r3PeTimeStr  = "R3: " + r3Pe_R3CrossTime + "\nS3: " + r3Pe_S3CrossTime
+
+    table.cell(optionTable, 0, 2, "R3 PE")
+    table.cell(optionTable, 1, 2, str.tostring(int(resistance3PEStrike)))
+    table.cell(optionTable, 2, 2, str.tostring(r3Pe_OptionR3, "#.##"))
+    table.cell(optionTable, 3, 2, str.tostring(r3Pe_OptionS3, "#.##"))
+    table.cell(optionTable, 4, 2, r3PeCrossStr, bgcolor=r3Pe_R3Crossed ? color.new(color.green, 80) : color.new(color.gray, 90))
+    table.cell(optionTable, 5, 2, r3PeTimeStr)
+    table.cell(optionTable, 6, 2, r3PeSymbol)
+    table.cell(optionTable, 7, 2, na(r3PeLtp) ? "N/A" : str.tostring(r3PeLtp, "#.##"))
+    table.cell(optionTable, 8, 2, str.tostring(r3PeEma9, "#.##"))
+    table.cell(optionTable, 9, 2, str.tostring(r3PeEma21, "#.##"))
+    table.cell(optionTable, 10, 2, r3PeTrend, text_color = r3PeBull ? color.green : color.red)
+    table.cell(optionTable, 11, 2, r3PeCrossTime)
+
+    // ROW 3: S3 CE
+    s3CeCrossStr = (s3Ce_R3Crossed ? "R3 Crossed" : "") + (s3Ce_R3Crossed and s3Ce_S3Crossed ? " / " : "") + (s3Ce_S3Crossed ? "S3 Crossed" : "")
+    s3CeCrossStr := s3CeCrossStr == "" ? "No Cross" : s3CeCrossStr
+    s3CeTimeStr  = "R3: " + s3Ce_R3CrossTime + "\nS3: " + s3Ce_S3CrossTime
+
+    table.cell(optionTable, 0, 3, "S3 CE")
+    table.cell(optionTable, 1, 3, str.tostring(int(support3CEStrike)))
+    table.cell(optionTable, 2, 3, str.tostring(s3Ce_OptionR3, "#.##"))
+    table.cell(optionTable, 3, 3, str.tostring(s3Ce_OptionS3, "#.##"))
+    table.cell(optionTable, 4, 3, s3CeCrossStr, bgcolor=s3Ce_S3Crossed ? color.new(color.red, 80) : color.new(color.gray, 90))
+    table.cell(optionTable, 5, 3, s3CeTimeStr)
+    table.cell(optionTable, 6, 3, s3CeSymbol)
+    table.cell(optionTable, 7, 3, na(s3CeLtp) ? "N/A" : str.tostring(s3CeLtp, "#.##"))
+    table.cell(optionTable, 8, 3, str.tostring(s3CeEma9, "#.##"))
+    table.cell(optionTable, 9, 3, str.tostring(s3CeEma21, "#.##"))
+    table.cell(optionTable, 10, 3, s3CeTrend, text_color = s3CeBull ? color.green : color.red)
+    table.cell(optionTable, 11, 3, s3CeCrossTime)
+        
+    // ROW 4: S3 PE
+    s3PeCrossStr = (s3Pe_R3Crossed ? "R3 Crossed" : "") + (s3Pe_R3Crossed and s3Pe_S3Crossed ? " / " : "") + (s3Pe_S3Crossed ? "S3 Crossed" : "")
+    s3PeCrossStr := s3PeCrossStr == "" ? "No Cross" : s3PeCrossStr
+    s3PeTimeStr  = "R3: " + s3Pe_R3CrossTime + "\nS3: " + s3Pe_S3CrossTime
+
+    table.cell(optionTable, 0, 4, "S3 PE")
+    table.cell(optionTable, 1, 4, str.tostring(int(support3PEStrike)))
+    table.cell(optionTable, 2, 4, str.tostring(s3Pe_OptionR3, "#.##"))
+    table.cell(optionTable, 3, 4, str.tostring(s3Pe_OptionS3, "#.##"))
+    table.cell(optionTable, 4, 4, s3PeCrossStr, bgcolor=s3Pe_S3Crossed ? color.new(color.red, 80) : color.new(color.gray, 90))
+    table.cell(optionTable, 5, 4, s3PeTimeStr)
+    table.cell(optionTable, 6, 4, s3PeSymbol)
+    table.cell(optionTable, 7, 4, na(s3PeLtp) ? "N/A" : str.tostring(s3PeLtp, "#.##"))
+    table.cell(optionTable, 8, 4, str.tostring(s3PeEma9, "#.##"))
+    table.cell(optionTable, 9, 4, str.tostring(s3PeEma21, "#.##"))
+    table.cell(optionTable, 10, 4, s3PeTrend, text_color = s3PeBull ? color.green : color.red)
+    table.cell(optionTable, 11, 4, s3PeCrossTime)    
