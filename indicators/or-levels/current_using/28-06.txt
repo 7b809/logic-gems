@@ -551,8 +551,8 @@ getJsonPayload(string alertSource, string alertCategory, string aType, string ti
 
     '{"ALERT_SOURCE":"' + alertSource + '","ALERT_CATEGORY":"' + alertCategory + '","TYPE":"' + aType + '","TICKER":"' + ticker + '","SYMBOL":"' + alertSymbol + '","DATE":"' + istDate + '","TIME":"' + istTime + '","TF":"' + tf + '","PRICE":"' + str.tostring(prc, "#.##") + '","EMA9":"' + str.tostring(e9, "#.##") + '","EMA21":"' + str.tostring(e21, "#.##") + '","DIFF":"' + str.tostring(math.abs(e9 - e21), "#.##") + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","LIVE_CE_STRIKE":"' + str.tostring(liveLtpCeStrike) + '","LIVE_PE_STRIKE":"' + str.tostring(liveLtpPeStrike) + '","LEVEL_STATUS":{"R3_TOUCHED":"' + (resistance3TouchedToday ? "YES" : "NO") + '","R3_TOUCH_TIME":"' + resistance3TouchTime + '","S3_TOUCHED":"' + (support3TouchedToday ? "YES" : "NO") + '","S3_TOUCH_TIME":"' + support3TouchTime + '","R3_THRESHOLD_TOUCHED":"' + (r3ThresholdTouched ? "YES" : "NO") + '","R3_THRESHOLD_TIME":"' + r3ThresholdTouchTime + '","S3_THRESHOLD_TOUCHED":"' + (s3ThresholdTouched ? "YES" : "NO") + '","S3_THRESHOLD_TIME":"' + s3ThresholdTouchTime + '"},"EMA_LEVEL_INFO":{"EMA9_TO_R3":"' + ema9ToR3Text + '","EMA9_TO_S3":"' + ema9ToS3Text + '","EMA21_TO_R3":"' + ema21ToR3Text + '","EMA21_TO_S3":"' + ema21ToS3Text + '","EMA9_R3_POSITION":"' + ema9R3Pos + '","EMA9_S3_POSITION":"' + ema9S3Pos + '","EMA21_R3_POSITION":"' + ema21R3Pos + '","EMA21_S3_POSITION":"' + ema21S3Pos + '","CROSS_TO_R3":"' + crossToR3Text + '","CROSS_TO_S3":"' + crossToS3Text + '","CROSS_R3_POSITION":"' + crossR3Position + '","CROSS_S3_POSITION":"' + crossS3Position + '","NEAREST_OR_LEVEL":"' + nearestLevel + '","NEAREST_DISTANCE":"' + nearestDistanceText + '"},"OPENING_RANGE":{"HIGH":"' + str.tostring(rangeHigh) + '","LOW":"' + str.tostring(rangeLow) + '","AVG":"' + str.tostring(rangeAvg) + '","SUB_RESISTANCE":"' + str.tostring(subResistance) + '","SUB_SUPPORT":"' + str.tostring(subSupport) + '","RESISTANCE2":"' + str.tostring(resistance2) + '","SUPPORT2":"' + str.tostring(support2) + '","RESISTANCE3":"' + str.tostring(resistance3) + '","SUPPORT3":"' + str.tostring(support3) + '","RESISTANCE3_CE_STRIKE":"' + str.tostring(resistance3CEStrike) + '","RESISTANCE3_PE_STRIKE":"' + str.tostring(resistance3PEStrike) + '","SUPPORT3_CE_STRIKE":"' + str.tostring(support3CEStrike) + '","SUPPORT3_PE_STRIKE":"' + str.tostring(support3PEStrike) + '","BUY_CE":"' + str.tostring(buyCE) + '","BUY_PE":"' + str.tostring(buyPE) + '"}}'
     
-
 getOptionJsonPayload(string alertCategory, string aType, string ticker, float prc, float e9, float e21, float optHigh, float optLow, float optR3, float optS3, string emaHistory) =>
+    // --- Opening Range Level Mathematical Calculations ---
     optAvg = (optHigh + optLow) / 2
     highAvgDiff = math.abs(optHigh - optAvg)
     lowAvgDiff = math.abs(optAvg - optLow)
@@ -560,39 +560,61 @@ getOptionJsonPayload(string alertCategory, string aType, string ticker, float pr
     optS2 = optLow - lowAvgDiff
     optSubRes = optAvg + (highAvgDiff / 2)
     optSubSup = optAvg - (lowAvgDiff / 2)
+    
+    // --- EMA Position Metrics Relative to Levels ---
     ema9ToOptR3 = e9 - optR3
     ema9ToOptS3 = e9 - optS3
     ema21ToOptR3 = e21 - optR3
     ema21ToOptS3 = e21 - optS3
+    
     ema9ToOptR3Text = na(ema9ToOptR3) ? "N/A" : str.tostring(ema9ToOptR3, "#.##")
     ema9ToOptS3Text = na(ema9ToOptS3) ? "N/A" : str.tostring(ema9ToOptS3, "#.##")
     ema21ToOptR3Text = na(ema21ToOptR3) ? "N/A" : str.tostring(ema21ToOptR3, "#.##")
     ema21ToOptS3Text = na(ema21ToOptS3) ? "N/A" : str.tostring(ema21ToOptS3, "#.##")
+    
     ema9OptR3Pos = ema9ToOptR3 > 0 ? "ABOVE_R3" : ema9ToOptR3 < 0 ? "BELOW_R3" : "AT_R3"
     ema9OptS3Pos = ema9ToOptS3 > 0 ? "ABOVE_S3" : ema9ToOptS3 < 0 ? "BELOW_S3" : "AT_S3"
     ema21OptR3Pos = ema21ToOptR3 > 0 ? "ABOVE_R3" : ema21ToOptR3 < 0 ? "BELOW_R3" : "AT_R3"
     ema21OptS3Pos = ema21ToOptS3 > 0 ? "ABOVE_S3" : ema21ToOptS3 < 0 ? "BELOW_S3" : "AT_S3"
+    
     nearestOptLevel = math.abs(prc - optR3) < math.abs(prc - optS3) ? "R3" : "S3"
     nearestOptDistance = str.tostring(math.min(math.abs(prc - optR3), math.abs(prc - optS3)), "#.##")
     
-    // Dynamic live strike calculations from main chart's close
+    // --- Dynamic Live Strikes calculated using Index Spot close price ---
     liveLtpCeStrike = math.floor(close / 50) * 50
     liveLtpPeStrike = math.ceil(close / 50) * 50
 
-    // Dynamic Suggested Strike Logic (Based on 9 EMA vs 21 EMA Trend)
     isBullish = e9 > e21
     
-    // Suggested 50 Interval Strike
     sStrike50 = isBullish ? math.floor(close / 50) * 50 : math.ceil(close / 50) * 50
     sStrike50Suffix = isBullish ? "CE" : "PE"
     suggestedStrike50Text = str.tostring(sStrike50) + sStrike50Suffix
 
-    // Suggested 100 Interval Strike
     sStrike100 = isBullish ? math.floor(close / 100) * 100 : math.ceil(close / 100) * 100
     sStrike100Suffix = isBullish ? "CE" : "PE"
     suggestedStrike100Text = str.tostring(sStrike100) + sStrike100Suffix
 
-    '{"ALERT_SOURCE":"OPTION","ALERT_CATEGORY":"' + alertCategory + '","TYPE":"' + aType + '","TICKER":"' + ticker + '","SYMBOL":"' + alertSymbol + '","DATE":"' + istDate + '","TIME":"' + istTime + '","TF":"' + tf + '","PRICE":"' + str.tostring(prc, "#.##") + '","EMA9":"' + str.tostring(e9, "#.##") + '","EMA21":"' + str.tostring(e21, "#.##") + '","DIFF":"' + str.tostring(math.abs(e9 - e21), "#.##") + '","EMA_CROSS_HISTORY":"' + emaHistory + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","LIVE_CE_STRIKE":"' + str.tostring(liveLtpCeStrike) + '","LIVE_PE_STRIKE":"' + str.tostring(liveLtpPeStrike) + '","SUGGESTED_STRIKE":{"STRIKE_50":"' + suggestedStrike50Text + '","STRIKE_100":"' + suggestedStrike100Text + '"},"EMA_LEVEL_INFO":{"EMA9_TO_R3":"' + ema9ToOptR3Text + '","EMA9_TO_S3":"' + ema9ToOptS3Text + '","EMA21_TO_R3":"' + ema21ToOptR3Text + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","EMA21_TO_S3":"' + ema21ToOptS3Text + '","EMA9_R3_POSITION":"' + ema9OptR3Pos + '","EMA9_S3_POSITION":"' + ema9OptS3Pos + '","EMA21_R3_POSITION":"' + ema21OptR3Pos + '","EMA21_S3_POSITION":"' + ema21OptS3Pos + '","NEAREST_OR_LEVEL":"' + nearestOptLevel + '","NEAREST_DISTANCE":"' + nearestOptDistance + '"},"OPTION_OPENING_RANGE":{"HIGH":"' + str.tostring(optHigh) + '","LOW":"' + str.tostring(optLow) + '","AVG":"' + str.tostring(optAvg) + '","SUB_RESISTANCE":"' + str.tostring(optSubRes) + '","SUB_SUPPORT":"' + str.tostring(optSubSup) + '","RESISTANCE2":"' + str.tostring(optR2) + '","SUPPORT2":"' + str.tostring(optS2) + '","RESISTANCE3":"' + str.tostring(optR3) + '","SUPPORT3":"' + str.tostring(optS3) + '"}}'    
+    // =========================================================================
+    // ✅ CROSS DIRECTION IDENTIFICATION LOGIC
+    // =========================================================================
+    string crossDirection = (aType == "BUY_CE" or aType == "BUY_PE" or aType == "BULL") ? "BULLISH" : "BEARISH"
+
+    // =========================================================================
+    // ✅ DYNAMIC BUY-ONLY EXECUTION SIGNALS LOGIC
+    // =========================================================================
+    string buyOnlySignal = "BUY_CE"
+    
+    if alertCategory == "R3_CE_OPTION" or alertCategory == "S3_CE_OPTION"
+        // --- CALL OPTION SYMBOLS ---
+        buyOnlySignal := (crossDirection == "BULLISH") ? "BUY_CE" : "BUY_PE"
+    else
+        // --- PUT OPTION SYMBOLS ---
+        buyOnlySignal := (crossDirection == "BULLISH") ? "BUY_PE" : "BUY_CE"
+
+    // --- Output Valid JSON Payload String ---
+    '{"ALERT_SOURCE":"OPTION","ALERT_CATEGORY":"' + alertCategory + '","TYPE":"' + aType + '","CROSS_DIRECTION":"' + crossDirection + '","BUY_ONLY_SIGNAL":"' + buyOnlySignal + '","TICKER":"' + ticker + '","SYMBOL":"' + alertSymbol + '","DATE":"' + istDate + '","TIME":"' + istTime + '","TF":"' + tf + '","PRICE":"' + str.tostring(prc, "#.##") + '","EMA9":"' + str.tostring(e9, "#.##") + '","EMA21":"' + str.tostring(e21, "#.##") + '","DIFF":"' + str.tostring(math.abs(e9 - e21), "#.##") + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","EMA_CROSS_HISTORY":"' + emaHistory + '","LIVE_CE_STRIKE":"' + str.tostring(liveLtpCeStrike) + '","LIVE_PE_STRIKE":"' + str.tostring(liveLtpPeStrike) + '","SUGGESTED_STRIKE":{"STRIKE_50":"' + suggestedStrike50Text + '","STRIKE_100":"' + suggestedStrike100Text + '"},"EMA_LEVEL_INFO":{"EMA9_TO_R3":"' + ema9ToOptR3Text + '","EMA9_TO_S3":"' + ema9ToOptS3Text + '","EMA21_TO_R3":"' + ema21ToOptR3Text + '","LIVE_MAIN_LTP":"' + str.tostring(close, "#.##") + '","EMA21_TO_S3":"' + ema21ToOptS3Text + '","EMA9_R3_POSITION":"' + ema9OptR3Pos + '","EMA9_S3_POSITION":"' + ema9OptS3Pos + '","EMA21_R3_POSITION":"' + ema21OptR3Pos + '","EMA21_S3_POSITION":"' + ema21OptS3Pos + '","NEAREST_OR_LEVEL":"' + nearestOptLevel + '","NEAREST_DISTANCE":"' + nearestOptDistance + '"},"OPTION_OPENING_RANGE":{"HIGH":"' + str.tostring(optHigh) + '","LOW":"' + str.tostring(optLow) + '","AVG":"' + str.tostring(optAvg) + '","SUB_RESISTANCE":"' + str.tostring(optSubRes) + '","SUB_SUPPORT":"' + str.tostring(optSubSup) + '","RESISTANCE2":"' + str.tostring(optR2) + '","SUPPORT2":"' + str.tostring(optS2) + '","RESISTANCE3":"' + str.tostring(optR3) + '","SUPPORT3":"' + str.tostring(optS3) + '"}}'
+      
+
 
 if bullCross
     alert(getJsonPayload("INDEX", "INDEX", "BUY_CE", syminfo.ticker, close, ema9, ema21), alert.freq_once_per_bar_close)
