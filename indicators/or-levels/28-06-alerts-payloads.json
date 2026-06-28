@@ -1,0 +1,252 @@
+1. Opening Range Alert (Index Context)
+Triggered at the close of the opening range when isIndexChart is set to true.
+
+JSON
+{
+  "TYPE": "OPENING_RANGE",
+  "TICKER": "NSE:NIFTY",
+  "SYMBOL": "NIFTY",
+  "HIGH": "24350.50",
+  "LOW": "24210.20",
+  "AVG": "24280.35",
+  "SUB_RESISTANCE": "24315.42",
+  "SUB_SUPPORT": "24245.28",
+  "RESISTANCE2": "24420.65",
+  "SUPPORT2": "24140.05",
+  "RESISTANCE3": "24490.80",
+  "SUPPORT3": "24069.90",
+  "RESISTANCE3_CE_STRIKE": "24450",
+  "RESISTANCE3_PE_STRIKE": "24500",
+  "SUPPORT3_CE_STRIKE": "24050",
+  "SUPPORT3_PE_STRIKE": "24100",
+  "BUY_CE": "24450",
+  "BUY_PE": "24100"
+}
+2. Main Chart Bullish EMA Crossover
+Triggered when the Main Index 9 EMA crosses over the 21 EMA.
+
+JSON
+{
+  "ALERT_SOURCE": "INDEX",
+  "ALERT_CATEGORY": "INDEX",
+  "TYPE": "BUY_CE",
+  "TICKER": "NSE:NIFTY",
+  "SYMBOL": "NIFTY",
+  "DATE": "28-06-2026",
+  "TIME": "11:20:00",
+  "TF": "5",
+  "PRICE": "24325.40",
+  "EMA9": "24310.15",
+  "EMA21": "24305.20",
+  "DIFF": "4.95",
+  "LIVE_MAIN_LTP": "24325.40",
+  "LIVE_CE_STRIKE": "24300",
+  "LIVE_PE_STRIKE": "24350",
+  "LEVEL_STATUS": {
+    "R3_TOUCHED": "NO",
+    "R3_TOUCH_TIME": "--",
+    "S3_TOUCHED": "NO",
+    "S3_TOUCH_TIME": "--",
+    "R3_THRESHOLD_TOUCHED": "YES",
+    "R3_THRESHOLD_TIME": "10:45:00",
+    "S3_THRESHOLD_TOUCHED": "NO",
+    "S3_THRESHOLD_TIME": "--"
+  },
+  "EMA_LEVEL_INFO": {
+    "EMA9_TO_R3": "-180.65",
+    "EMA9_TO_S3": "240.25",
+    "EMA21_TO_R3": "-185.60",
+    "EMA21_TO_S3": "235.30",
+    "EMA9_R3_POSITION": "BELOW_R3",
+    "EMA9_S3_POSITION": "ABOVE_S3",
+    "EMA21_R3_POSITION": "BELOW_R3",
+    "EMA21_S3_POSITION": "ABOVE_S3",
+    "CROSS_TO_R3": "-165.40",
+    "CROSS_TO_S3": "255.50",
+    "CROSS_R3_POSITION": "BELOW_R3",
+    "CROSS_S3_POSITION": "ABOVE_S3",
+    "NEAREST_OR_LEVEL": "R3",
+    "NEAREST_DISTANCE": "165.40"
+  },
+  "OPENING_RANGE": {
+    "HIGH": "24350.50",
+    "LOW": "24210.20",
+    "AVG": "24280.35",
+    "SUB_RESISTANCE": "24315.42",
+    "SUB_SUPPORT": "24245.28",
+    "RESISTANCE2": "24420.65",
+    "SUPPORT2": "24140.05",
+    "RESISTANCE3": "24490.80",
+    "SUPPORT3": "24069.90",
+    "RESISTANCE3_CE_STRIKE": "24450",
+    "RESISTANCE3_PE_STRIKE": "24500",
+    "SUPPORT3_CE_STRIKE": "24050",
+    "SUPPORT3_PE_STRIKE": "24100",
+    "BUY_CE": "24450",
+    "BUY_PE": "24100"
+  }
+}
+3. Main Chart Bearish EMA Crossover
+Triggered when the Main Index 9 EMA crosses under the 21 EMA.
+
+JSON
+{
+  "ALERT_SOURCE": "INDEX",
+  "ALERT_CATEGORY": "INDEX",
+  "TYPE": "BUY_PE",
+  "TICKER": "NSE:NIFTY",
+  "SYMBOL": "NIFTY",
+  "DATE": "28-06-2026",
+  "TIME": "13:45:00",
+  "TF": "5",
+  "PRICE": "24110.80",
+  "EMA9": "24122.40",
+  "EMA21": "24128.90",
+  "DIFF": "6.50",
+  "LIVE_MAIN_LTP": "24110.80",
+  "LIVE_CE_STRIKE": "24100",
+  "LIVE_PE_STRIKE": "24150",
+  "LEVEL_STATUS": {
+    "R3_TOUCHED": "NO",
+    "R3_TOUCH_TIME": "--",
+    "S3_TOUCHED": "YES",
+    "S3_TOUCH_TIME": "13:40:00",
+    "R3_THRESHOLD_TOUCHED": "NO",
+    "R3_THRESHOLD_TIME": "--",
+    "S3_THRESHOLD_TOUCHED": "YES",
+    "S3_THRESHOLD_TIME": "13:15:00"
+  },
+  "EMA_LEVEL_INFO": {
+    "EMA9_TO_R3": "-368.40",
+    "EMA9_TO_S3": "52.50",
+    "EMA21_TO_R3": "-361.90",
+    "EMA21_TO_S3": "59.00",
+    "EMA9_R3_POSITION": "BELOW_R3",
+    "EMA9_S3_POSITION": "ABOVE_S3",
+    "EMA21_R3_POSITION": "BELOW_R3",
+    "EMA21_S3_POSITION": "ABOVE_S3",
+    "CROSS_TO_R3": "-380.00",
+    "CROSS_TO_S3": "40.90",
+    "CROSS_R3_POSITION": "BELOW_R3",
+    "CROSS_S3_POSITION": "ABOVE_S3",
+    "NEAREST_OR_LEVEL": "S3",
+    "NEAREST_DISTANCE": "40.90"
+  },
+  "OPENING_RANGE": {
+    "HIGH": "24350.50",
+    "LOW": "24210.20",
+    "AVG": "24280.35",
+    "SUB_RESISTANCE": "24315.42",
+    "SUB_SUPPORT": "24245.28",
+    "RESISTANCE2": "24420.65",
+    "SUPPORT2": "24140.05",
+    "RESISTANCE3": "24490.80",
+    "SUPPORT3": "24069.90",
+    "RESISTANCE3_CE_STRIKE": "24450",
+    "RESISTANCE3_PE_STRIKE": "24500",
+    "SUPPORT3_CE_STRIKE": "24050",
+    "SUPPORT3_PE_STRIKE": "24100",
+    "BUY_CE": "24450",
+    "BUY_PE": "24100"
+  }
+}
+4. Option Contract - Bullish EMA Cross (e.g., R3 CE Contract)
+Triggered dynamically from within the option blocks when the option's own 9 EMA crosses over its 21 EMA.
+
+JSON
+{
+  "ALERT_SOURCE": "OPTION",
+  "ALERT_CATEGORY": "R3_CE_OPTION",
+  "TYPE": "BUY_CE",
+  "TICKER": "NSE:NIFTY260630C24150",
+  "SYMBOL": "NIFTY",
+  "DATE": "28-06-2026",
+  "TIME": "10:15:30",
+  "TF": "5",
+  "PRICE": "185.50",
+  "EMA9": "182.20",
+  "EMA21": "179.40",
+  "DIFF": "2.80",
+  "EMA_CROSS_HISTORY": "09:45:15:BEAR:165.20:166.80 | 10:15:30:BULL:182.20:179.40",
+  "LIVE_MAIN_LTP": "24360.20",
+  "LIVE_CE_STRIKE": "24350",
+  "LIVE_PE_STRIKE": "24400",
+  "SUGGESTED_STRIKE": {
+    "STRIKE_50": "24350CE",
+    "STRIKE_100": "24300CE"
+  },
+  "EMA_LEVEL_INFO": {
+    "EMA9_TO_R3": "-42.80",
+    "EMA9_TO_S3": "62.20",
+    "LIVE_MAIN_LTP": "24360.20",
+    "EMA21_TO_R3": "-45.60",
+    "EMA21_TO_S3": "59.40",
+    "EMA9_R3_POSITION": "BELOW_R3",
+    "EMA9_S3_POSITION": "ABOVE_S3",
+    "EMA21_R3_POSITION": "BELOW_R3",
+    "EMA21_S3_POSITION": "ABOVE_S3",
+    "NEAREST_OR_LEVEL": "R3",
+    "NEAREST_DISTANCE": "39.50"
+  },
+  "OPTION_OPENING_RANGE": {
+    "HIGH": "205.00",
+    "LOW": "145.00",
+    "AVG": "175.00",
+    "SUB_RESISTANCE": "190.00",
+    "SUB_SUPPORT": "160.00",
+    "RESISTANCE2": "235.00",
+    "SUPPORT2": "115.00",
+    "RESISTANCE3": "265.00",
+    "SUPPORT3": "85.00"
+  }
+}
+5. Option Contract - Bearish EMA Cross (e.g., S3 PE Contract)
+Triggered dynamically from within the option blocks when the option's own 9 EMA crosses under its 21 EMA.
+
+JSON
+{
+  "ALERT_SOURCE": "OPTION",
+  "ALERT_CATEGORY": "S3_PE_OPTION",
+  "TYPE": "BUY_PE",
+  "TICKER": "NSE:NIFTY260630P24100",
+  "SYMBOL": "NIFTY",
+  "DATE": "28-06-2026",
+  "TIME": "14:10:05",
+  "TF": "5",
+  "PRICE": "92.10",
+  "EMA9": "94.60",
+  "EMA21": "95.80",
+  "DIFF": "1.20",
+  "EMA_CROSS_HISTORY": "11:05:00:BULL:112.40:110.15 | 14:10:05:BEAR:94.60:95.80",
+  "LIVE_MAIN_LTP": "24285.50",
+  "LIVE_CE_STRIKE": "24250",
+  "LIVE_PE_STRIKE": "24300",
+  "SUGGESTED_STRIKE": {
+    "STRIKE_50": "24300PE",
+    "STRIKE_100": "24300PE"
+  },
+  "EMA_LEVEL_INFO": {
+    "EMA9_TO_R3": "-75.40",
+    "EMA9_TO_S3": "24.60",
+    "LIVE_MAIN_LTP": "24285.50",
+    "EMA21_TO_R3": "-74.20",
+    "EMA21_TO_S3": "25.80",
+    "EMA9_R3_POSITION": "BELOW_R3",
+    "EMA9_S3_POSITION": "ABOVE_S3",
+    "EMA21_R3_POSITION": "BELOW_R3",
+    "EMA21_S3_POSITION": "ABOVE_S3",
+    "NEAREST_OR_LEVEL": "S3",
+    "NEAREST_DISTANCE": "22.10"
+  },
+  "OPTION_OPENING_RANGE": {
+    "HIGH": "130.00",
+    "LOW": "90.00",
+    "AVG": "110.00",
+    "SUB_RESISTANCE": "120.00",
+    "SUB_SUPPORT": "100.00",
+    "RESISTANCE2": "150.00",
+    "SUPPORT2": "70.00",
+    "RESISTANCE3": "170.00",
+    "SUPPORT3": "50.00"
+  }
+}
